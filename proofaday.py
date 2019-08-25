@@ -16,6 +16,7 @@ from pylatexenc.macrospec import std_macro
 URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
 MAX_RETRY = 5
+PROOF_END = re.compile(r'blacksquare')
 tmps = (
     None,
     "Union_of_Left-Total_Relations_is_Left-Total",  # missing
@@ -61,9 +62,7 @@ def to_text(tag):
         for row in tag.find_all("tr"):
             row_txt = []
             for el in row.find_all("td"):
-                el_txt = el.get_text().strip()
-                if el_txt != "":
-                    row_txt.append(el_txt)
+                row_txt += list(el.stripped_strings)
             txt.append(r"\qquad" + r"\ ".join(row_txt))
         return r"\\".join(txt)
 
@@ -78,12 +77,17 @@ def get_proof(name=None):
         body = html.find("div", id="bodyContent")
         theorem = body.find("span", id="Theorem")
         proof = body.find("span", id="Proof")
-        # TODO: strip text after proof end
         if title is not None and theorem is not None and proof is not None:
             tags = ["p", "dl", "table"]
             theorem_body = theorem.parent.find_next_siblings(tags)
             proof_body = proof.parent.find_next_siblings(tags)
             theorem_body = theorem_body[: -len(proof_body)]
+
+            # Strip text after proof end
+            for idx, node in enumerate(proof_body):
+                if node.find(string=PROOF_END) is not None:
+                    proof_body = proof_body[: idx + 1]
+                    break
 
             return (
                 title.get_text(),
@@ -96,7 +100,10 @@ def get_proof(name=None):
 
 
 if __name__ == "__main__":
-    ret = get_proof(tmp)
+    try:
+        ret = get_proof(tmp)
+    except ConnectionResetError:
+        ret = None
     if ret is not None:
         title, theorem, proof = ret
         theorem, proof = (
