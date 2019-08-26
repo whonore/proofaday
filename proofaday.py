@@ -13,6 +13,7 @@ from syms import latex_to_text
 URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
 MAX_RETRY = 5
+MAX_PROOFS = 10
 PROOF_END = re.compile(r"blacksquare")
 PORT = 48484
 HOST = 'localhost'
@@ -87,40 +88,48 @@ def format_proof(title, theorem, proof):
 
 class ProofHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        sock = self.request[1]
-        proof = self.server.queue.get()
-        sock.sendto(bytes(proof, 'utf8'), self.client_address)
+        msg, sock = self.request
+        if msg != b'':
+            proof = self.server.fetch_proof(str(msg, 'utf8'))
+        else:
+            proof = self.server.queue.get()
+        sock.sendto(bytes(proof, 'utf8') if proof is not None else b'', self.client_address)
 
 class ProofServer(socketserver.UDPServer):
     def __init__(self, port):
         super().__init__((HOST, port), ProofHandler)
-        self.queue = Queue(maxsize=10)
+        self.queue = Queue(maxsize=MAX_PROOFS)
         self.fetcher = threading.Thread(target=self.fetch_proofs)
         self.fetcher.start()
 
+    def fetch_proof(self, name=None):
+        try:
+            title, theorem, proof = get_proof(name)
+        except TypeError:
+            return None
+        except ConnectionResetError:
+            return None
+
+        # if debug:
+        #     print("===DEBUG===")
+        #     print(format_proof(title, theorem, proof))
+        #     print("===DEBUG===\n")
+
+        return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
+
     def fetch_proofs(self):
         while True:
-            try:
-                title, theorem, proof = get_proof(name)
-            except TypeError:
-                continue
-            except ConnectionResetError:
-                continue
-
-            # if debug:
-            #     print("===DEBUG===")
-            #     print(format_proof(title, theorem, proof))
-            #     print("===DEBUG===\n")
-
-            self.queue.put(format_proof(title, latex_to_text(theorem), latex_to_text(proof)))
+            proof = self.fetch_proof()
+            if proof is not None:
+                self.queue.put(proof)
 
 def start_server():
     with ProofServer(PORT) as server:
         server.serve_forever()
 
-def query_server():
+def query_server(name):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.sendto(b'', (HOST, PORT))
+        sock.sendto(bytes(name, 'utf8') if name is not None else b'', (HOST, PORT))
         return str(sock.recv(4096), 'utf8')
 
 if __name__ == "__main__":
@@ -140,4 +149,4 @@ if __name__ == "__main__":
     try:
         start_server()
     except OSError:
-        print(query_server())
+        print(query_server(name))
