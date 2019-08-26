@@ -1,9 +1,11 @@
 import re
+import os
 import socket
 import socketserver
 import sys
 import threading
 from argparse import ArgumentParser
+from enum import IntEnum
 from queue import Queue
 
 import requests
@@ -17,6 +19,7 @@ NPREFETCH = 10
 PROOF_END = re.compile(r"blacksquare")
 PORT = 48484
 HOST = "localhost"
+SERVER_TRIES = 10
 TEST_PAGES = (
     "Union_of_Left-Total_Relations_is_Left-Total",
     "Frattini's_Argument",
@@ -82,24 +85,39 @@ def format_proof(title, theorem, proof):
     return "{}\n{}\n{}\n\nProof:\n{}".format(title, "=" * len(title), theorem, proof)
 
 
+class MsgKind(IntEnum):
+    CHECK = 1
+    REQUEST = 2
+    RANDOM = 3
+    KILL = 4
+
+
 class ProofHandler(socketserver.BaseRequestHandler):
     def handle(self):
         msg, sock = self.request
-        if msg != b"":
-            proof = self.server.fetch_proof(str(msg, 'utf8'))
-        else:
-            proof = self.server.queue.get()
-        sock.sendto(
-            bytes(proof, "utf8") if proof is not None else b"", self.client_address
-        )
+        kind, msg = MsgKind(msg[0]), msg[1:]
+
+        if kind is MsgKind.CHECK:
+            msg = b""
+        elif kind is MsgKind.REQUEST:
+            proof = self.server.fetch_proof(str(msg, "utf8"))
+            msg = bytes(proof, "utf8") if proof is not None else b""
+        elif kind is MsgKind.RANDOM:
+            msg = bytes(self.server.queue.get(), "utf8")
+        elif kind is MsgKind.KILL:
+            sock.sendto(b"", self.client_address)
+            self.server.shutdown()
+            return
+        sock.sendto(msg, self.client_address)
 
 
-class ProofServer(socketserver.UDPServer):
+class ProofServer(socketserver.ThreadingUDPServer):
     def __init__(self, port, limit, nprefetch, **kwargs):
         super().__init__((HOST, port), ProofHandler)
         self.queue = Queue(maxsize=nprefetch)
         self.limit = limit
         self.fetcher = threading.Thread(target=self.fetch_proofs)
+        self.fetcher.daemon = True
         self.fetcher.start()
 
     def fetch_proof(self, name=None):
@@ -131,14 +149,34 @@ def start_server(*args, **kwargs):
         server.serve_forever()
 
 
-def query_server(port, name):
+def msg_server(port, kind, data=""):
+    msg = bytes((kind,)) + bytes(data, "utf8")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        if name is not None:
-            msg = bytes(name, "utf8")
-        else:
-            msg = b""
         sock.sendto(msg, (HOST, port))
-        return str(sock.recv(4096), "utf8")
+        if kind in (MsgKind.CHECK, MsgKind.KILL):
+            sock.settimeout(0.1)
+            try:
+                sock.recv(1)
+                return True
+            except socket.timeout:
+                return False
+        else:
+            return str(sock.recv(4096), "utf8")
+
+
+def check_server(port):
+    return msg_server(port, MsgKind.CHECK)
+
+
+def kill_server(port):
+    return msg_server(port, MsgKind.KILL)
+
+
+def query_server(port, name):
+    if name is not None:
+        return msg_server(port, MsgKind.REQUEST, bytes(name, "utf8"))
+    else:
+        return msg_server(port, MsgKind.RANDOM)
 
 
 def pos(arg):
@@ -157,12 +195,27 @@ if __name__ == "__main__":
         "-n", "--num-prefetch-proofs", dest="nprefetch", type=pos, default=NPREFETCH
     )
     parser.add_argument("-p", "--port", type=int, default=PORT)
+    parser.add_argument("-k", "--kill-server", dest="kill", action="store_true")
     args = parser.parse_args()
 
     if args.name is not None and args.name[0].isdigit():
         args.name = TEST_PAGES[int(args.name)]
 
-    try:
-        start_server(**vars(args))
-    except OSError:
-        print(query_server(args.port, args.name))
+    if args.kill:
+        sys.exit(not kill_server(args.port))
+
+    if not check_server(args.port):
+        if os.fork() == 0:
+            try:
+                start_server(**vars(args))
+                sys.exit()
+            except OSError:
+                sys.exit("Could not start server")
+        else:
+            for _ in range(SERVER_TRIES):
+                if check_server(args.port):
+                    break
+            else:
+                sys.exit("Could not connect to server")
+
+    print(query_server(args.port, args.name))
