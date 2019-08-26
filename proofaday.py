@@ -1,5 +1,9 @@
 import re
+import socket
+import socketserver
 import sys
+import threading
+from queue import Queue
 
 import requests
 from bs4 import BeautifulSoup as BS
@@ -10,6 +14,8 @@ URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
 MAX_RETRY = 5
 PROOF_END = re.compile(r"blacksquare")
+PORT = 48484
+HOST = 'localhost'
 TEST_PAGES = (
     "Union_of_Left-Total_Relations_is_Left-Total",
     "Frattini's_Argument",
@@ -20,7 +26,6 @@ TEST_PAGES = (
     "Inverse_of_Algebraic_Structure_Isomorphism_is_Isomorphism/General_Result",
     "If Every Element Pseudoprime is Prime then Way Below Relation is Multiplicative",
 )
-
 
 def node_to_text(node):
     if node.name == "p":
@@ -80,6 +85,43 @@ def get_proof(name=None):
 def format_proof(title, theorem, proof):
     return "{}\n{}\n{}\n\nProof:\n{}".format(title, "=" * len(title), theorem, proof)
 
+class ProofHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        sock = self.request[1]
+        proof = self.server.queue.get()
+        sock.sendto(bytes(proof, 'utf8'), self.client_address)
+
+class ProofServer(socketserver.UDPServer):
+    def __init__(self, port):
+        super().__init__((HOST, port), ProofHandler)
+        self.queue = Queue(maxsize=10)
+        self.fetcher = threading.Thread(target=self.fetch_proofs)
+        self.fetcher.start()
+
+    def fetch_proofs(self):
+        while True:
+            try:
+                title, theorem, proof = get_proof(name)
+            except TypeError:
+                continue
+            except ConnectionResetError:
+                continue
+
+            # if debug:
+            #     print("===DEBUG===")
+            #     print(format_proof(title, theorem, proof))
+            #     print("===DEBUG===\n")
+
+            self.queue.put(format_proof(title, latex_to_text(theorem), latex_to_text(proof)))
+
+def start_server():
+    with ProofServer(PORT) as server:
+        server.serve_forever()
+
+def query_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.sendto(b'', (HOST, PORT))
+        return str(sock.recv(4096), 'utf8')
 
 if __name__ == "__main__":
     try:
@@ -96,15 +138,6 @@ if __name__ == "__main__":
         name = None
 
     try:
-        title, theorem, proof = get_proof(name)
-    except TypeError:
-        sys.exit(1)
-    except ConnectionResetError:
-        sys.exit(1)
-
-    if debug:
-        print("===DEBUG===")
-        print(format_proof(title, theorem, proof))
-        print("===DEBUG===\n")
-
-    print(format_proof(title, latex_to_text(theorem), latex_to_text(proof)))
+        start_server()
+    except OSError:
+        print(query_server())
