@@ -13,7 +13,6 @@ from syms import latex_to_text
 
 URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
-MAX_RETRY = 5
 NPREFETCH = 10
 PROOF_END = re.compile(r"blacksquare")
 PORT = 48484
@@ -50,38 +49,32 @@ def get_proof(name=None):
         name = RANDOM
     url = URL + name
 
-    for _ in range(MAX_RETRY):
-        html = BS(requests.get(url).text, "html.parser")
-        title = html.find("h1", id="firstHeading")
-        body = html.find("div", id="bodyContent")
-        theorem = body.find("span", id="Theorem")
-        proof = body.find("span", id="Proof")
+    html = BS(requests.get(url).text, "html.parser")
+    title = html.find("h1", id="firstHeading")
+    body = html.find("div", id="bodyContent")
+    theorem = body.find("span", id="Theorem")
+    proof = body.find("span", id="Proof")
 
-        if title is not None and theorem is not None and proof is not None:
-            tags = ("p", "dl", "table")
-            theorem_body = theorem.parent.find_next_siblings(tags)
-            proof_body = proof.parent.find_next_siblings(tags)
-            theorem_body = theorem_body[: -len(proof_body)]
+    if title is not None and theorem is not None and proof is not None:
+        tags = ("p", "dl", "table")
+        theorem_body = theorem.parent.find_next_siblings(tags)
+        proof_body = proof.parent.find_next_siblings(tags)
+        theorem_body = theorem_body[: -len(proof_body)]
 
-            if theorem_body == [] or proof_body == []:
-                if name != RANDOM:
-                    break
-                else:
-                    continue
+        if theorem_body == [] or proof_body == []:
+            return None
 
-            # Strip text after proof end
-            for idx, node in enumerate(proof_body):
-                if node.find(string=PROOF_END) is not None:
-                    proof_body = proof_body[: idx + 1]
-                    break
+        # Strip text after proof end
+        for idx, node in enumerate(proof_body):
+            if node.find(string=PROOF_END) is not None:
+                proof_body = proof_body[: idx + 1]
+                break
 
-            return (
-                title.get_text(),
-                "".join(node_to_text(node) for node in theorem_body).strip(),
-                "".join(node_to_text(node) for node in proof_body).strip(),
-            )
-        elif name != RANDOM:
-            break
+        return (
+            title.get_text(),
+            "".join(node_to_text(node) for node in theorem_body).strip(),
+            "".join(node_to_text(node) for node in proof_body).strip(),
+        )
     return None
 
 
@@ -93,7 +86,7 @@ class ProofHandler(socketserver.BaseRequestHandler):
     def handle(self):
         msg, sock = self.request
         if msg != b"":
-            proof = self.server.fetch_proof(str(msg, "utf8"))
+            proof = self.server.fetch_proof(str(msg, 'utf8'))
         else:
             proof = self.server.queue.get()
         sock.sendto(
