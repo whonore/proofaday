@@ -20,6 +20,7 @@ PROOF_END = re.compile(r"blacksquare")
 PORT = 48484
 HOST = "localhost"
 SERVER_TRIES = 10
+MAX_REQUESTS = 5
 TEST_PAGES = (
     "Union_of_Left-Total_Relations_is_Left-Total",
     "Frattini's_Argument",
@@ -122,26 +123,30 @@ class ProofServer(socketserver.ThreadingUDPServer):
 
     def fetch_proof(self, name=None):
         try:
-            title, theorem, proof = get_proof(name)
+            res = get_proof(name)
+            if res is not None:
+                title, theorem, proof = res
+                return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
         except TypeError:
             return None
         except ConnectionResetError:
             return None
 
-        # if debug:
-        #     print("===DEBUG===")
-        #     print(format_proof(title, theorem, proof))
-        #     print("===DEBUG===\n")
-
-        return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
-
     def fetch_proofs(self):
-        while True:
+        def enqueue_proof():
             proof = self.fetch_proof()
             if proof is not None and (
                 self.limit is None or len(proof.split("\n")) <= self.limit
             ):
                 self.queue.put(proof)
+
+        while True:
+            needed = max(min(self.queue.maxsize - self.queue.qsize(), MAX_REQUESTS), 1)
+            workers = [threading.Thread(target=enqueue_proof) for _ in range(needed)]
+            for worker in workers:
+                worker.start()
+            for worker in workers:
+                worker.join()
 
 
 def start_server(*args, **kwargs):
