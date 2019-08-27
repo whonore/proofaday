@@ -1,3 +1,4 @@
+import logging
 import re
 import os
 import socket
@@ -6,6 +7,7 @@ import sys
 import threading
 from argparse import ArgumentParser
 from enum import IntEnum
+from logging.handlers import RotatingFileHandler
 from queue import Queue
 
 import requests
@@ -17,10 +19,12 @@ URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
 NPREFETCH = 10
 PROOF_END = re.compile(r"blacksquare")
-PORT = 48484
 HOST = "localhost"
+PORT = 48484
 SERVER_TRIES = 10
 MAX_REQUESTS = 5
+LOG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "proofaday.log"))
+MAX_LOG_BYTES = 1024 * 1024
 TEST_PAGES = (
     "Union_of_Left-Total_Relations_is_Left-Total",
     "Frattini's_Argument",
@@ -113,23 +117,31 @@ class ProofHandler(socketserver.BaseRequestHandler):
 
 
 class ProofServer(socketserver.ThreadingUDPServer):
-    def __init__(self, port, limit, nprefetch, **kwargs):
+    def __init__(self, port, limit, nprefetch, debug, **kwargs):
         super().__init__((HOST, port), ProofHandler)
+        level = logging.DEBUG if debug else logging.INFO
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(level)
+        self.logger.addHandler(
+            RotatingFileHandler(
+                LOG_PATH, maxBytes=MAX_LOG_BYTES, backupCount=1, encoding="utf8"
+            )
+        )
         self.queue = Queue(maxsize=nprefetch)
         self.limit = limit
-        self.fetcher = threading.Thread(target=self.fetch_proofs)
-        self.fetcher.daemon = True
-        self.fetcher.start()
+        threading.Thread(target=self.fetch_proofs, daemon=True).start()
 
     def fetch_proof(self, name=None):
         try:
             res = get_proof(name)
             if res is not None:
                 title, theorem, proof = res
+                self.logger.debug(format_proof(title, theorem, proof))
                 return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
-        except TypeError:
-            return None
         except ConnectionResetError:
+            return None
+        except Exception as e:
+            self.logger.exception("Exception while fetching a proof")
             return None
 
     def fetch_proofs(self):
