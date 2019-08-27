@@ -8,12 +8,13 @@ import threading
 from argparse import ArgumentParser
 from enum import IntEnum
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from queue import Queue
 
 import requests
 from bs4 import BeautifulSoup as BS
 
-from syms import latex_to_text
+from .syms import latex_to_text
 
 URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
@@ -23,7 +24,7 @@ HOST = "localhost"
 PORT = 48484
 SERVER_TRIES = 10
 MAX_REQUESTS = 5
-LOG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "proofaday.log"))
+LOG_PATH = Path(__file__).parent / "proofaday.log"
 MAX_LOG_BYTES = 1024 * 1024
 TEST_PAGES = (
     "Union_of_Left-Total_Relations_is_Left-Total",
@@ -203,7 +204,7 @@ def pos(arg):
     return arg
 
 
-if __name__ == "__main__":
+def main():
     parser = ArgumentParser(description="Fetch a random proof")
     parser.add_argument("name", nargs="?", default=None)
     parser.add_argument("-d", "--debug", action="store_true")
@@ -236,3 +237,7 @@ if __name__ == "__main__":
                 sys.exit("Could not connect to server")
 
     print(query_server(args.port, args.name))
+
+
+if __name__ == "__main__":
+    main()

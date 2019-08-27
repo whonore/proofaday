@@ -7,6 +7,6 @@ verify_ssl = true
 black = "==19.3b0"
 
 [packages]
-requests = "*"
-beautifulsoup4 = "*"
-pylatexenc = "*"
+requests = "~=2.22.0"
+beautifulsoup4 = "~=4.8.0"
+pylatexenc = "~=2.1"
