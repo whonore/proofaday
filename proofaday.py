@@ -1,6 +1,6 @@
 import logging
-import re
 import os
+import re
 import socket
 import socketserver
 import sys
@@ -140,7 +140,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
                 return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
         except ConnectionResetError:
             return None
-        except Exception as e:
+        except Exception:
             self.logger.exception("Exception while fetching a proof")
             return None
 

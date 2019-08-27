@@ -3,8 +3,7 @@ from pylatexenc.latex2text import (
     MacroTextSpec,
     get_default_latex_context_db as l2t_ctx,
 )
-
-# from pylatexenc.latex2text._defaultspecs import make_accented_char
+from pylatexenc.latex2text._defaultspecs import make_accented_char
 from pylatexenc.latexwalker import get_default_latex_context_db as lwalk_ctx
 from pylatexenc.macrospec import std_macro
 
@@ -601,62 +600,6 @@ ACCENTS = (
     ("widehat", "\N{COMBINING CIRCUMFLEX ACCENT}"),
     ("widetilde", "\N{COMBINING TILDE}"),
 )
-
-# TODO: temporary workaround for bug with make_accented_char
-unicode_accents_list = (
-    # see http://en.wikibooks.org/wiki/LaTeX/Special_Characters for a list
-    ("'", u"\N{COMBINING ACUTE ACCENT}"),
-    ("`", u"\N{COMBINING GRAVE ACCENT}"),
-    ('"', u"\N{COMBINING DIAERESIS}"),
-    ("c", u"\N{COMBINING CEDILLA}"),
-    ("^", u"\N{COMBINING CIRCUMFLEX ACCENT}"),
-    ("~", u"\N{COMBINING TILDE}"),
-    ("H", u"\N{COMBINING DOUBLE ACUTE ACCENT}"),
-    ("k", u"\N{COMBINING OGONEK}"),
-    ("=", u"\N{COMBINING MACRON}"),
-    ("b", u"\N{COMBINING MACRON BELOW}"),
-    (".", u"\N{COMBINING DOT ABOVE}"),
-    ("d", u"\N{COMBINING DOT BELOW}"),
-    ("r", u"\N{COMBINING RING ABOVE}"),
-    ("u", u"\N{COMBINING BREVE}"),
-    ("v", u"\N{COMBINING CARON}"),
-    ("vec", u"\N{COMBINING RIGHT ARROW ABOVE}"),
-    ("dot", u"\N{COMBINING DOT ABOVE}"),
-    ("hat", u"\N{COMBINING CIRCUMFLEX ACCENT}"),
-    ("check", u"\N{COMBINING CARON}"),
-    ("breve", u"\N{COMBINING BREVE}"),
-    ("acute", u"\N{COMBINING ACUTE ACCENT}"),
-    ("grave", u"\N{COMBINING GRAVE ACCENT}"),
-    ("tilde", u"\N{COMBINING TILDE}"),
-    ("bar", u"\N{COMBINING OVERLINE}"),
-    ("ddot", u"\N{COMBINING DIAERESIS}"),
-    ("not", u"\N{COMBINING LONG SOLIDUS OVERLAY}"),
-)
-ACCENTS += unicode_accents_list
-
-
-def make_accented_char(node, combining, l2tobj):
-    import unicodedata
-    import pylatexenc.latexwalker
-
-    nodearg = (
-        node.nodeargs[0]
-        if len(node.nodeargs)
-        else latexwalker.LatexCharsNode(chars=" ")
-    )
-
-    c = l2tobj.nodelist_to_text([nodearg]).strip()
-
-    def getaccented(ch, combining):
-        if ch == u"\N{LATIN SMALL LETTER DOTLESS I}":
-            ch = u"i"
-        if ch == u"\N{LATIN SMALL LETTER DOTLESS J}":
-            ch = u"j"
-        # print u"Accenting %s with %s"%(ch, combining) # this causes UnicdeDecodeError!!!
-        return unicodedata.normalize("NFC", ch + combining)
-
-    return u"".join([getaccented(ch, combining) for ch in c])
-
 
 for name, combine in ACCENTS:
     MACROS.append(
