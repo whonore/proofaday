@@ -172,7 +172,10 @@ class ProofServer(socketserver.ThreadingUDPServer):
 
 def start_server(*args: Any, **kwargs: Any) -> None:
     with ProofServer(*args, **kwargs) as server:
-        server.serve_forever()
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
 
 
 def msg_server(port: int, kind: MsgKind, data: str = "") -> Union[str, bool]:
