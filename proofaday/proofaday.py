@@ -80,6 +80,9 @@ def get_proof(name: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
             if node.find(string=PROOF_END) is not None:
                 proof_body = proof_body[: idx + 1]
                 break
+        else:
+            # No proof end found
+            return None
 
         return (
             title.get_text(),
