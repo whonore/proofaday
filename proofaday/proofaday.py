@@ -10,9 +10,10 @@ from enum import IntEnum
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from queue import Queue
+from typing import Any, List, Optional, NoReturn, Tuple, Union
 
 import requests
-from bs4 import BeautifulSoup as BS
+from bs4 import BeautifulSoup as BS  # type: ignore
 
 from .syms import latex_to_text
 
@@ -38,22 +39,23 @@ TEST_PAGES = (
 )
 
 
-def node_to_text(node):
+def node_to_text(node: Any) -> str:
     if node.name == "p":
-        return node.get_text()
+        return node.get_text()  # type: ignore
     elif node.name == "dl":
         return "\\qquad{}\n".format(node.get_text())
     elif node.name == "table":
         txt = []
         for row in node.find_all("tr"):
-            row_txt = []
+            row_txt: List[str] = []
             for el in row.find_all("td"):
                 row_txt += list(el.stripped_strings)
             txt.append(r"\qquad" + r"\ ".join(row_txt))
         return r"\\".join(txt) + "\n"
+    raise ValueError(node.name)
 
 
-def get_proof(name=None):
+def get_proof(name: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
     if name is None:
         name = RANDOM
     url = URL + name
@@ -87,7 +89,7 @@ def get_proof(name=None):
     return None
 
 
-def format_proof(title, theorem, proof):
+def format_proof(title: str, theorem: str, proof: str) -> str:
     return "{}\n{}\n{}\n\nProof:\n{}".format(title, "=" * len(title), theorem, proof)
 
 
@@ -99,17 +101,17 @@ class MsgKind(IntEnum):
 
 
 class ProofHandler(socketserver.BaseRequestHandler):
-    def handle(self):
+    def handle(self) -> None:
         msg, sock = self.request
         kind, msg = MsgKind(msg[0]), msg[1:]
 
         if kind is MsgKind.CHECK:
             msg = b""
         elif kind is MsgKind.REQUEST:
-            proof = self.server.fetch_proof(str(msg, "utf8"))
+            proof = self.server.fetch_proof(str(msg, "utf8"))  # type: ignore
             msg = bytes(proof, "utf8") if proof is not None else b""
         elif kind is MsgKind.RANDOM:
-            msg = bytes(self.server.queue.get(), "utf8")
+            msg = bytes(self.server.queue.get(), "utf8")  # type: ignore
         elif kind is MsgKind.KILL:
             sock.sendto(b"", self.client_address)
             self.server.shutdown()
@@ -118,7 +120,9 @@ class ProofHandler(socketserver.BaseRequestHandler):
 
 
 class ProofServer(socketserver.ThreadingUDPServer):
-    def __init__(self, port, limit, nprefetch, debug, **kwargs):
+    def __init__(
+        self, port: int, limit: int, nprefetch: int, debug: bool, **kwargs: Any
+    ) -> None:
         super().__init__((HOST, port), ProofHandler)
         level = logging.DEBUG if debug else logging.INFO
         self.logger = logging.getLogger(__name__)
@@ -128,25 +132,26 @@ class ProofServer(socketserver.ThreadingUDPServer):
                 LOG_PATH, maxBytes=MAX_LOG_BYTES, backupCount=1, encoding="utf8"
             )
         )
-        self.queue = Queue(maxsize=nprefetch)
+        self.queue: Queue[str] = Queue(maxsize=nprefetch)
         self.limit = limit
         threading.Thread(target=self.fetch_proofs, daemon=True).start()
 
-    def fetch_proof(self, name=None):
+    def fetch_proof(self, name: Optional[str] = None) -> Optional[str]:
         try:
             res = get_proof(name)
             if res is not None:
                 title, theorem, proof = res
                 self.logger.debug(format_proof(title, theorem, proof))
                 return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
+            return None
         except ConnectionResetError:
             return None
         except Exception:
             self.logger.exception("Exception while fetching a proof")
             return None
 
-    def fetch_proofs(self):
-        def enqueue_proof():
+    def fetch_proofs(self) -> NoReturn:
+        def enqueue_proof() -> None:
             proof = self.fetch_proof()
             if proof is not None and (
                 self.limit is None or len(proof.split("\n")) <= self.limit
@@ -162,12 +167,12 @@ class ProofServer(socketserver.ThreadingUDPServer):
                 worker.join()
 
 
-def start_server(*args, **kwargs):
+def start_server(*args: Any, **kwargs: Any) -> None:
     with ProofServer(*args, **kwargs) as server:
         server.serve_forever()
 
 
-def msg_server(port, kind, data=""):
+def msg_server(port: int, kind: MsgKind, data: str = "") -> Union[str, bool]:
     msg = bytes((kind,)) + bytes(data, "utf8")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.sendto(msg, (HOST, port))
@@ -182,29 +187,29 @@ def msg_server(port, kind, data=""):
             return str(sock.recv(4096), "utf8")
 
 
-def check_server(port):
-    return msg_server(port, MsgKind.CHECK)
+def check_server(port: int) -> bool:
+    return msg_server(port, MsgKind.CHECK)  # type: ignore
 
 
-def kill_server(port):
-    return msg_server(port, MsgKind.KILL)
+def kill_server(port: int) -> bool:
+    return msg_server(port, MsgKind.KILL)  # type: ignore
 
 
-def query_server(port, name):
+def query_server(port: int, name: Optional[str]) -> str:
     if name is not None:
-        return msg_server(port, MsgKind.REQUEST, bytes(name, "utf8"))
+        return msg_server(port, MsgKind.REQUEST, name)  # type: ignore
     else:
-        return msg_server(port, MsgKind.RANDOM)
+        return msg_server(port, MsgKind.RANDOM)  # type: ignore
 
 
-def pos(arg):
-    arg = int(arg)
-    if arg <= 0:
+def pos(arg: str) -> int:
+    iarg = int(arg)
+    if iarg <= 0:
         raise ValueError("not positive")
-    return arg
+    return iarg
 
 
-def main():
+def main() -> None:
     parser = ArgumentParser(description="Fetch a random proof")
     parser.add_argument("name", nargs="?", default=None)
     parser.add_argument("-d", "--debug", action="store_true")

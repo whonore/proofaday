@@ -1,11 +1,13 @@
-from pylatexenc.latex2text import (
+from pylatexenc.latex2text import (  # type: ignore
     LatexNodes2Text,
     MacroTextSpec,
     get_default_latex_context_db as l2t_ctx,
 )
-from pylatexenc.latex2text._defaultspecs import make_accented_char
-from pylatexenc.latexwalker import get_default_latex_context_db as lwalk_ctx
-from pylatexenc.macrospec import std_macro
+from pylatexenc.latex2text._defaultspecs import make_accented_char  # type: ignore
+from pylatexenc.latexwalker import (  # type: ignore
+    get_default_latex_context_db as lwalk_ctx,
+)
+from pylatexenc.macrospec import std_macro  # type: ignore
 
 MACROS = [
     MacroTextSpec(name, simplify_repl=repl)
@@ -618,5 +620,5 @@ CTX_ARGS.add_context_category("mathjax", macros=ARGS, prepend=True)
 L2T = LatexNodes2Text(CTX, math_mode="text")
 
 
-def latex_to_text(latex):
-    return L2T.latex_to_text(latex, latex_context=CTX_ARGS)
+def latex_to_text(latex: str) -> str:
+    return L2T.latex_to_text(latex, latex_context=CTX_ARGS)  # type: ignore

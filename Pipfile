@@ -5,6 +5,9 @@ verify_ssl = true
 
 [dev-packages]
 black = "==19.3b0"
+flake8 = "*"
+flake8-bugbear = "*"
+mypy = "*"
 
 [packages]
 requests = "~=2.22.0"
