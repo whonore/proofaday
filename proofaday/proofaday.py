@@ -10,7 +10,7 @@ from enum import IntEnum
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from queue import Queue
-from typing import Any, List, Optional, NoReturn, Tuple, Union
+from typing import Any, List, NoReturn, Optional, Tuple, Union
 
 import requests
 from bs4 import BeautifulSoup as BS  # type: ignore
