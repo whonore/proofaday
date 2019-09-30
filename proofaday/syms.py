@@ -557,8 +557,11 @@ MACROS = [
         ("yen", "\N{YEN SIGN}"),
         ("zeta", "\N{GREEK SMALL LETTER ZETA}"),
         # ProofWiki
+        ("divides", "\N{DIVIDES}"),
         ("paren", "(%s)"),
+        ("C", "\N{DOUBLE-STRUCK CAPITAL C}"),
         ("N", "\N{DOUBLE-STRUCK CAPITAL N}"),
+        ("Q", "\N{DOUBLE-STRUCK CAPITAL Q}"),
         ("R", "\N{DOUBLE-STRUCK CAPITAL R}"),
         ("Z", "\N{DOUBLE-STRUCK CAPITAL Z}"),
         ("set", "{%s}"),
