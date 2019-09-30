@@ -30,16 +30,6 @@ SERVER_TRIES = 10
 MAX_REQUESTS = 5
 LOG_PATH = Path(__file__).parent / "proofaday.log"
 MAX_LOG_BYTES = 1024 * 1024
-TEST_PAGES = (
-    "Union_of_Left-Total_Relations_is_Left-Total",
-    "Frattini's_Argument",
-    "Floor_of_Ceiling_is_Ceiling",
-    "Existence_of_Unique_Subsemigroup_Generated_by_Subset",
-    "Largest_Rectangle_with_Given_Perimeter_is_Square",
-    "Event_Independence_is_Symmetric",
-    "Inverse_of_Algebraic_Structure_Isomorphism_is_Isomorphism/General_Result",
-    "If Every Element Pseudoprime is Prime then Way Below Relation is Multiplicative",
-)
 
 
 def node_to_text(node: Any) -> str:
@@ -236,9 +226,6 @@ def main() -> None:
     parser.add_argument("-t", "--timeout", type=float, default=CLIENT_TIMEOUT)
     parser.add_argument("-k", "--kill-server", dest="kill", action="store_true")
     args = parser.parse_args()
-
-    if args.name is not None and args.name[0].isdigit():
-        args.name = TEST_PAGES[int(args.name)]
 
     if args.kill:
         sys.exit(not kill_server(args.port))
