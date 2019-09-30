@@ -14,6 +14,7 @@ from typing import Any, List, Optional, NoReturn, Tuple, Union
 
 import requests
 from bs4 import BeautifulSoup as BS  # type: ignore
+from requests import exceptions as exs
 
 from .syms import latex_to_text
 
@@ -23,6 +24,8 @@ NPREFETCH = 10
 PROOF_END = re.compile(r"blacksquare")
 HOST = "localhost"
 PORT = 48484
+SERVER_TIMEOUT = 1
+CLIENT_TIMEOUT = 3
 SERVER_TRIES = 10
 MAX_REQUESTS = 5
 LOG_PATH = Path(__file__).parent / "proofaday.log"
@@ -60,7 +63,7 @@ def get_proof(name: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
         name = RANDOM
     url = URL + name
 
-    html = BS(requests.get(url).text, "html.parser")
+    html = BS(requests.get(url, timeout=SERVER_TIMEOUT).text, "html.parser")
     title = html.find("h1", id="firstHeading")
     body = html.find("div", id="bodyContent")
     theorem = body.find("span", id="Theorem")
@@ -147,7 +150,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
                 self.logger.debug(format_proof(title, theorem, proof))
                 return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
             return None
-        except ConnectionResetError:
+        except (ConnectionResetError, exs.Timeout):
             return None
         except Exception:
             self.logger.exception("Exception while fetching a proof")
@@ -178,7 +181,9 @@ def start_server(*args: Any, **kwargs: Any) -> None:
             pass
 
 
-def msg_server(port: int, kind: MsgKind, data: str = "") -> Union[str, bool]:
+def msg_server(
+    port: int, kind: MsgKind, timeout: float = 0, data: str = ""
+) -> Union[str, bool]:
     msg = bytes((kind,)) + bytes(data, "utf8")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.sendto(msg, (HOST, port))
@@ -190,7 +195,11 @@ def msg_server(port: int, kind: MsgKind, data: str = "") -> Union[str, bool]:
             except socket.timeout:
                 return False
         else:
-            return str(sock.recv(4096), "utf8")
+            sock.settimeout(timeout)
+            try:
+                return str(sock.recv(4096), "utf8")
+            except socket.timeout:
+                return "Server timed out."
 
 
 def check_server(port: int) -> bool:
@@ -201,11 +210,11 @@ def kill_server(port: int) -> bool:
     return msg_server(port, MsgKind.KILL)  # type: ignore
 
 
-def query_server(port: int, name: Optional[str]) -> str:
+def query_server(port: int, timeout: float, name: Optional[str]) -> str:
     if name is not None:
-        return msg_server(port, MsgKind.REQUEST, name)  # type: ignore
+        return msg_server(port, MsgKind.REQUEST, timeout, name)  # type: ignore
     else:
-        return msg_server(port, MsgKind.RANDOM)  # type: ignore
+        return msg_server(port, MsgKind.RANDOM, timeout)  # type: ignore
 
 
 def pos(arg: str) -> int:
@@ -224,6 +233,7 @@ def main() -> None:
         "-n", "--num-prefetch-proofs", dest="nprefetch", type=pos, default=NPREFETCH
     )
     parser.add_argument("-p", "--port", type=int, default=PORT)
+    parser.add_argument("-t", "--timeout", type=float, default=CLIENT_TIMEOUT)
     parser.add_argument("-k", "--kill-server", dest="kill", action="store_true")
     args = parser.parse_args()
 
@@ -247,7 +257,7 @@ def main() -> None:
             else:
                 sys.exit("Could not connect to server")
 
-    print(query_server(args.port, args.name))
+    print(query_server(args.port, args.timeout, args.name))
 
 
 if __name__ == "__main__":
