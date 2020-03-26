@@ -193,11 +193,11 @@ class ProofServer(socketserver.ThreadingUDPServer):
 
 
 def daemon(*args: Any, **kwargs: Any) -> None:
-    with ProofServer(*args, **kwargs) as server:
-        try:
+    try:
+        with ProofServer(*args, **kwargs) as server:
             server.serve_forever()
-        except KeyboardInterrupt:
-            pass
+    except KeyboardInterrupt:
+        pass
     sys.exit()
 
 
