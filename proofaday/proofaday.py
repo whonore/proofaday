@@ -11,7 +11,8 @@ from enum import IntEnum
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from queue import Queue
-from typing import Any, List, NoReturn, Optional, Set, Union
+from typing import Any, List, NoReturn, Optional, Set, Union, overload
+from typing_extensions import Literal
 
 import requests
 from bs4 import BeautifulSoup as BS  # type: ignore[import]
@@ -207,6 +208,16 @@ class ProofClient:
         self.port = port
         self.timeout = timeout
 
+    @overload
+    def msg(self, kind: Literal[MsgKind.CHECK, MsgKind.KILL], data: str = ...) -> bool:
+        ...
+
+    @overload
+    def msg(
+        self, kind: Literal[MsgKind.REQUEST, MsgKind.RANDOM], data: str = ...
+    ) -> str:
+        ...
+
     def msg(self, kind: MsgKind, data: str = "") -> Union[str, bool]:
         msg = bytes((kind,)) + data.encode()
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -239,15 +250,15 @@ class ProofClient:
             raise ProofServerError("Failed to spawn server.")
 
     def check(self) -> bool:
-        return self.msg(MsgKind.CHECK)  # type: ignore
+        return self.msg(MsgKind.CHECK)
 
     def kill(self) -> bool:
-        return self.msg(MsgKind.KILL)  # type: ignore
+        return self.msg(MsgKind.KILL)
 
     def query(self, name: Optional[str]) -> str:
         if name is not None:
-            return self.msg(MsgKind.REQUEST, name)  # type: ignore
-        return self.msg(MsgKind.RANDOM)  # type: ignore
+            return self.msg(MsgKind.REQUEST, name)
+        return self.msg(MsgKind.RANDOM)
 
 
 def main() -> None:
