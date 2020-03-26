@@ -31,9 +31,9 @@ setup(
         "beautifulsoup4~=4.8.0",
         "pylatexenc~=2.1",
     ],
-    entry_points = {
-        'console_scripts': [
-            'proofaday=proofaday.proofaday:main'
+    entry_points={
+        "console_scripts": [
+            "proofaday=proofaday.proofaday:main"
         ],
     },
 )

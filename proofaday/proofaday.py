@@ -1,3 +1,4 @@
+import concurrent.futures as futures
 import logging
 import os
 import re
@@ -10,10 +11,10 @@ from enum import IntEnum
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from queue import Queue
-from typing import Any, List, NoReturn, Optional, Tuple, Union
+from typing import Any, List, NoReturn, Optional, Set, Union
 
 import requests
-from bs4 import BeautifulSoup as BS  # type: ignore
+from bs4 import BeautifulSoup as BS  # type: ignore[import]
 from requests import exceptions as exs
 
 from .syms import latex_to_text
@@ -21,20 +22,48 @@ from .syms import latex_to_text
 URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
 NPREFETCH = 10
-PROOF_END = re.compile(r"blacksquare")
+PROOF_END = re.compile("blacksquare")
 HOST = "localhost"
 PORT = 48484
 SERVER_TIMEOUT = 1
 CLIENT_TIMEOUT = 3
-SERVER_TRIES = 10
-MAX_REQUESTS = 5
 LOG_PATH = Path(__file__).parent / "proofaday.log"
-MAX_LOG_BYTES = 1024 * 1024
+
+
+class Proof:
+    def __init__(self, title: str, theorem: str, proof: str) -> None:
+        self.title = title
+        self._theorem = theorem
+        self._proof = proof
+        self.theorem = latex_to_text(theorem)
+        self.proof = latex_to_text(proof)
+
+    def __repr__(self) -> str:
+        return (
+            f"Proof(title={self.title}, theorem={self._theorem}, proof={self._proof})"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.title}\n{'=' * len(self.title)}\n"
+            f"{self.theorem}\n\nProof:\n{self.proof}"
+        )
+
+
+class MsgKind(IntEnum):
+    CHECK = 1
+    REQUEST = 2
+    RANDOM = 3
+    KILL = 4
+
+
+class ProofServerError(Exception):
+    pass
 
 
 def node_to_text(node: Any) -> str:
     if node.name == "p":
-        return node.get_text()  # type: ignore
+        return node.get_text()  # type: ignore[no-any-return]
     elif node.name == "dl":
         return "\\qquad{}\n".format(node.get_text())
     elif node.name == "table":
@@ -48,7 +77,7 @@ def node_to_text(node: Any) -> str:
     raise ValueError(node.name)
 
 
-def get_proof(name: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
+def get_proof(name: Optional[str] = None) -> Optional[Proof]:
     if name is None:
         name = RANDOM
     url = URL + name
@@ -77,7 +106,7 @@ def get_proof(name: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
             # No proof end found
             return None
 
-        return (
+        return Proof(
             title.get_text(),
             "".join(node_to_text(node) for node in theorem_body).strip(),
             "".join(node_to_text(node) for node in proof_body).strip(),
@@ -85,37 +114,30 @@ def get_proof(name: Optional[str] = None) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-def format_proof(title: str, theorem: str, proof: str) -> str:
-    return "{}\n{}\n{}\n\nProof:\n{}".format(title, "=" * len(title), theorem, proof)
-
-
-class MsgKind(IntEnum):
-    CHECK = 1
-    REQUEST = 2
-    RANDOM = 3
-    KILL = 4
-
-
 class ProofHandler(socketserver.BaseRequestHandler):
     def handle(self) -> None:
-        msg, sock = self.request
-        kind, msg = MsgKind(msg[0]), msg[1:]
+        data, sock = self.request
+        kind, msg = MsgKind(data[0]), data[1:].decode()
+        server: ProofServer = self.server  # type: ignore[assignment]
 
         if kind is MsgKind.CHECK:
-            msg = b""
+            reply = ""
         elif kind is MsgKind.REQUEST:
-            proof = self.server.fetch_proof(str(msg, "utf8"))  # type: ignore
-            msg = bytes(proof, "utf8") if proof is not None else b""
+            proof = server.fetch_proof(msg)
+            reply = proof if proof is not None else ""
         elif kind is MsgKind.RANDOM:
-            msg = bytes(self.server.queue.get(), "utf8")  # type: ignore
+            reply = server.queue.get()
         elif kind is MsgKind.KILL:
             sock.sendto(b"", self.client_address)
-            self.server.shutdown()
+            server.shutdown()
             return
-        sock.sendto(msg, self.client_address)
+        sock.sendto(reply.encode(), self.client_address)
 
 
 class ProofServer(socketserver.ThreadingUDPServer):
+    max_log_bytes = 1024 * 1024
+    max_requests = 5
+
     def __init__(
         self, port: int, limit: int, nprefetch: int, debug: bool, **kwargs: Any
     ) -> None:
@@ -125,7 +147,10 @@ class ProofServer(socketserver.ThreadingUDPServer):
         self.logger.setLevel(level)
         self.logger.addHandler(
             RotatingFileHandler(
-                LOG_PATH, maxBytes=MAX_LOG_BYTES, backupCount=1, encoding="utf8"
+                LOG_PATH,
+                maxBytes=ProofServer.max_log_bytes,
+                backupCount=1,
+                encoding="utf8",
             )
         )
         self.queue: Queue[str] = Queue(maxsize=nprefetch)
@@ -134,87 +159,103 @@ class ProofServer(socketserver.ThreadingUDPServer):
 
     def fetch_proof(self, name: Optional[str] = None) -> Optional[str]:
         try:
-            res = get_proof(name)
-            if res is not None:
-                title, theorem, proof = res
-                self.logger.debug(format_proof(title, theorem, proof))
-                return format_proof(title, latex_to_text(theorem), latex_to_text(proof))
+            proof = get_proof(name)
+            if proof is not None:
+                self.logger.debug(repr(proof))
+                return str(proof)
             return None
         except (ConnectionResetError, exs.Timeout):
             return None
-        except Exception:
-            self.logger.exception("Exception while fetching a proof")
+        except Exception as e:
+            self.logger.exception(
+                "Unexpected exception while fetching a proof: %s", str(e)
+            )
             return None
 
+    def enqueue_proof(self) -> None:
+        proof = self.fetch_proof()
+        if proof is not None and (
+            self.limit is None or len(proof.split("\n")) <= self.limit
+        ):
+            self.queue.put(proof)
+
     def fetch_proofs(self) -> NoReturn:
-        def enqueue_proof() -> None:
-            proof = self.fetch_proof()
-            if proof is not None and (
-                self.limit is None or len(proof.split("\n")) <= self.limit
-            ):
-                self.queue.put(proof)
-
-        while True:
-            needed = max(min(self.queue.maxsize - self.queue.qsize(), MAX_REQUESTS), 1)
-            workers = [threading.Thread(target=enqueue_proof) for _ in range(needed)]
-            for worker in workers:
-                worker.start()
-            for worker in workers:
-                worker.join()
+        with futures.ThreadPoolExecutor(ProofServer.max_requests) as pool:
+            jobs: Set[futures.Future[None]] = set()
+            while True:
+                njobs = self.queue.maxsize - self.queue.qsize() - len(jobs)
+                if len(jobs) == 0:
+                    njobs = max(njobs, 1)
+                jobs |= {pool.submit(self.enqueue_proof) for _ in range(njobs)}
+                done, _ = futures.wait(jobs, return_when=futures.FIRST_COMPLETED)
+                jobs -= done
 
 
-def start_server(*args: Any, **kwargs: Any) -> None:
+def daemon(*args: Any, **kwargs: Any) -> None:
     with ProofServer(*args, **kwargs) as server:
         try:
             server.serve_forever()
         except KeyboardInterrupt:
             pass
+    sys.exit()
 
 
-def msg_server(
-    port: int, kind: MsgKind, timeout: float = 0, data: str = ""
-) -> Union[str, bool]:
-    msg = bytes((kind,)) + bytes(data, "utf8")
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.sendto(msg, (HOST, port))
-        if kind in (MsgKind.CHECK, MsgKind.KILL):
-            sock.settimeout(0.1)
-            try:
-                sock.recv(1)
-                return True
-            except socket.timeout:
-                return False
-        else:
-            sock.settimeout(timeout)
-            try:
-                return str(sock.recv(4096), "utf8")
-            except socket.timeout:
-                return "Server timed out."
+class ProofClient:
+    retries = 10
 
+    def __init__(self, port: int, timeout: float) -> None:
+        self.port = port
+        self.timeout = timeout
 
-def check_server(port: int) -> bool:
-    return msg_server(port, MsgKind.CHECK)  # type: ignore
+    def msg(self, kind: MsgKind, data: str = "") -> Union[str, bool]:
+        msg = bytes((kind,)) + data.encode()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.sendto(msg, (HOST, self.port))
+            if kind in (MsgKind.CHECK, MsgKind.KILL):
+                sock.settimeout(0.1)
+                try:
+                    sock.recv(1)
+                    return True
+                except socket.timeout:
+                    return False
+            else:
+                sock.settimeout(self.timeout)
+                try:
+                    return sock.recv(4096).decode()
+                except socket.timeout:
+                    return "Server timed out."
 
+    def spawn(self, *args: Any, **kwargs: Any) -> None:
+        try:
+            if os.fork() == 0:
+                daemon(*args, **kwargs)
+            else:
+                for _ in range(ProofClient.retries):
+                    if self.check():
+                        break
+                else:
+                    raise ProofServerError("Failed to connect to server.")
+        except OSError:
+            raise ProofServerError("Failed to spawn server.")
 
-def kill_server(port: int) -> bool:
-    return msg_server(port, MsgKind.KILL)  # type: ignore
+    def check(self) -> bool:
+        return self.msg(MsgKind.CHECK)  # type: ignore
 
+    def kill(self) -> bool:
+        return self.msg(MsgKind.KILL)  # type: ignore
 
-def query_server(port: int, timeout: float, name: Optional[str]) -> str:
-    if name is not None:
-        return msg_server(port, MsgKind.REQUEST, timeout, name)  # type: ignore
-    else:
-        return msg_server(port, MsgKind.RANDOM, timeout)  # type: ignore
-
-
-def pos(arg: str) -> int:
-    iarg = int(arg)
-    if iarg <= 0:
-        raise ValueError("not positive")
-    return iarg
+    def query(self, name: Optional[str]) -> str:
+        if name is not None:
+            return self.msg(MsgKind.REQUEST, name)  # type: ignore
+        return self.msg(MsgKind.RANDOM)  # type: ignore
 
 
 def main() -> None:
+    def pos(arg: str) -> int:
+        if int(arg) <= 0:
+            raise ValueError("not positive")
+        return int(arg)
+
     parser = ArgumentParser(description="Fetch a random proof")
     parser.add_argument("name", nargs="?", default=None)
     parser.add_argument("-d", "--debug", action="store_true")
@@ -227,24 +268,15 @@ def main() -> None:
     parser.add_argument("-k", "--kill-server", dest="kill", action="store_true")
     args = parser.parse_args()
 
-    if args.kill:
-        sys.exit(not kill_server(args.port))
-
-    if not check_server(args.port):
-        if os.fork() == 0:
-            try:
-                start_server(**vars(args))
-                sys.exit()
-            except OSError:
-                sys.exit("Could not start server")
-        else:
-            for _ in range(SERVER_TRIES):
-                if check_server(args.port):
-                    break
-            else:
-                sys.exit("Could not connect to server")
-
-    print(query_server(args.port, args.timeout, args.name))
+    client = ProofClient(args.port, args.timeout)
+    try:
+        if args.kill:
+            sys.exit(not client.kill())
+        if not client.check():
+            client.spawn(**vars(args))
+        print(client.query(args.name))
+    except ProofServerError as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":
