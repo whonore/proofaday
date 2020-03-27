@@ -66,7 +66,7 @@ def node_to_text(node: Any) -> str:
     if node.name == "p":
         return node.get_text()  # type: ignore[no-any-return]
     elif node.name == "dl":
-        return "\\qquad{}\n".format(node.get_text())
+        return f"\\qquad{node.get_text()}\n"
     elif node.name == "table":
         txt = []
         for row in node.find_all("tr"):
