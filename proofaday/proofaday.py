@@ -1,7 +1,6 @@
 import concurrent.futures as futures
 import logging
 import os
-import re
 import socket
 import socketserver
 import sys
@@ -11,44 +10,23 @@ from enum import IntEnum
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from queue import Queue
-from typing import Any, List, NoReturn, Optional, Set, Union, overload
+from typing import Any, NoReturn, Optional, Set, Union, overload
 from typing_extensions import Literal
 
 import requests
 from bs4 import BeautifulSoup as BS  # type: ignore[import]
 from requests import exceptions as exs
 
-from .syms import latex_to_text
+from .proof import InvalidProofException, Proof
 
 URL = "https://proofwiki.org/wiki/"
 RANDOM = "Special:Random"
 NPREFETCH = 10
-PROOF_END = re.compile("blacksquare")
 HOST = "localhost"
 PORT = 48484
 SERVER_TIMEOUT = 1
 CLIENT_TIMEOUT = 3
 LOG_PATH = Path(__file__).parent / "proofaday.log"
-
-
-class Proof:
-    def __init__(self, title: str, theorem: str, proof: str) -> None:
-        self.title = title
-        self._theorem = theorem
-        self._proof = proof
-        self.theorem = latex_to_text(theorem)
-        self.proof = latex_to_text(proof)
-
-    def __repr__(self) -> str:
-        return (
-            f"Proof(title={self.title}, theorem={self._theorem}, proof={self._proof})"
-        )
-
-    def __str__(self) -> str:
-        return (
-            f"{self.title}\n{'=' * len(self.title)}\n"
-            f"{self.theorem}\n\nProof:\n{self.proof}"
-        )
 
 
 class MsgKind(IntEnum):
@@ -60,59 +38,6 @@ class MsgKind(IntEnum):
 
 class ProofServerError(Exception):
     pass
-
-
-def node_to_text(node: Any) -> str:
-    if node.name == "p":
-        return node.get_text()  # type: ignore[no-any-return]
-    elif node.name == "dl":
-        return f"\\qquad{node.get_text()}\n"
-    elif node.name == "table":
-        txt = []
-        for row in node.find_all("tr"):
-            row_txt: List[str] = []
-            for el in row.find_all("td"):
-                row_txt += list(el.stripped_strings)
-            txt.append(r"\qquad" + r"\ ".join(row_txt))
-        return r"\\".join(txt) + "\n"
-    raise ValueError(node.name)
-
-
-def get_proof(name: Optional[str] = None) -> Optional[Proof]:
-    if name is None:
-        name = RANDOM
-    url = URL + name
-
-    html = BS(requests.get(url, timeout=SERVER_TIMEOUT).text, "html.parser")
-    title = html.find("h1", id="firstHeading")
-    body = html.find("div", id="bodyContent")
-    theorem = body.find("span", id="Theorem")
-    proof = body.find("span", id="Proof")
-
-    if title is not None and theorem is not None and proof is not None:
-        tags = ("p", "dl", "table")
-        theorem_body = theorem.parent.find_next_siblings(tags)
-        proof_body = proof.parent.find_next_siblings(tags)
-        theorem_body = theorem_body[: -len(proof_body)]
-
-        if theorem_body == [] or proof_body == []:
-            return None
-
-        # Strip text after proof end
-        for idx, node in enumerate(proof_body):
-            if node.find(string=PROOF_END) is not None:
-                proof_body = proof_body[: idx + 1]
-                break
-        else:
-            # No proof end found
-            return None
-
-        return Proof(
-            title.get_text(),
-            "".join(node_to_text(node) for node in theorem_body).strip(),
-            "".join(node_to_text(node) for node in proof_body).strip(),
-        )
-    return None
 
 
 class ProofHandler(socketserver.BaseRequestHandler):
@@ -159,19 +84,24 @@ class ProofServer(socketserver.ThreadingUDPServer):
         threading.Thread(target=self.fetch_proofs, daemon=True).start()
 
     def fetch_proof(self, name: Optional[str] = None) -> Optional[str]:
+        if name is None:
+            name = RANDOM
+        url = URL + name
+
         try:
-            proof = get_proof(name)
-            if proof is not None:
-                self.logger.debug(repr(proof))
-                return str(proof)
-            return None
+            html = BS(requests.get(url, timeout=SERVER_TIMEOUT).text, "html.parser")
+            proof = Proof(html)
+            self.logger.debug(repr(proof))
+            return str(proof)
         except (ConnectionResetError, exs.Timeout):
-            return None
+            pass
+        except InvalidProofException as e:
+            self.logger.exception("Invalid proof: %s", str(e))
         except Exception as e:
             self.logger.exception(
                 "Unexpected exception while fetching a proof: %s", str(e)
             )
-            return None
+        return None
 
     def enqueue_proof(self) -> None:
         proof = self.fetch_proof()
