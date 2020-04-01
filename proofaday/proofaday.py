@@ -25,7 +25,7 @@ NPREFETCH = 10
 HOST = "localhost"
 PORT = 48484
 CLIENT_TIMEOUT = 3
-LOG_PATH = Path(__file__).parent / "proofaday.log"
+LOG_PATH = str(Path(__file__).parent / "proofaday.log")
 
 
 class MsgKind(IntEnum):
@@ -44,17 +44,23 @@ class ProofHandler(socketserver.BaseRequestHandler):
         data, sock = self.request
         kind, msg = MsgKind(data[0]), data[1:].decode()
         server: ProofServer = self.server  # type: ignore[assignment]
+        logger = server.logger
+        logger.info("Received %s from (%s, %d)", kind, *self.client_address)
 
         if kind is MsgKind.CHECK:
             reply = ""
         elif kind is MsgKind.REQUEST:
+            logger.info("Fetching %s", msg)
             proof = server.fetch_proof(msg)
             reply = proof if proof is not None else ""
         elif kind is MsgKind.RANDOM:
+            logger.info("Dequeuing proof")
             reply = server.queue.get()
         elif kind is MsgKind.KILL:
+            logger.info("Shutting down server")
             sock.sendto(b"", self.client_address)
             server.shutdown()
+            logger.info("Server shutdown")
             return
         sock.sendto(reply.encode(), self.client_address)
 
@@ -71,19 +77,28 @@ class ProofServer(socketserver.ThreadingUDPServer):
     ) -> None:
         super().__init__((HOST, port), ProofHandler)
         level = logging.DEBUG if debug else logging.INFO
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(level)
-        self.logger.addHandler(
-            RotatingFileHandler(
-                LOG_PATH,
+        self.logger = self.init_logger(level, LOG_PATH)
+        self.queue: Queue[str] = Queue(maxsize=nprefetch)
+        self.limit = limit
+        threading.Thread(
+            target=self.fetch_proofs, daemon=True, name="ServerLoop"
+        ).start()
+
+    def init_logger(self, level: int, path: Optional[str]) -> logging.Logger:
+        logger = logging.getLogger(__name__)
+        logger.setLevel(level)
+        if path is not None:
+            handler: logging.Handler = RotatingFileHandler(
+                path,
                 maxBytes=ProofServer.max_log_bytes,
                 backupCount=1,
                 encoding="utf8",
             )
-        )
-        self.queue: Queue[str] = Queue(maxsize=nprefetch)
-        self.limit = limit
-        threading.Thread(target=self.fetch_proofs, daemon=True).start()
+        else:
+            handler = logging.NullHandler()
+        handler.setFormatter(logging.Formatter("%(threadName)s: %(message)s"))
+        logger.addHandler(handler)
+        return logger
 
     def fetch_proof(self, name: Optional[str] = None) -> Optional[str]:
         if name is None:
@@ -91,7 +106,8 @@ class ProofServer(socketserver.ThreadingUDPServer):
         url = URL + name
 
         try:
-            html = BS(requests.get(url, timeout=ProofServer.proof_timeout).text, "html.parser")
+            data = requests.get(url, timeout=ProofServer.proof_timeout).text
+            html = BS(data, "html.parser")
             proof = Proof(html)
             self.logger.debug(repr(proof))
             return str(proof)
@@ -105,23 +121,27 @@ class ProofServer(socketserver.ThreadingUDPServer):
             )
         return None
 
-    def enqueue_proof(self) -> None:
-        proof = self.fetch_proof()
-        if proof is not None and (
-            self.limit is None or len(proof.split("\n")) <= self.limit
-        ):
+    def enqueue_proof(self, proof: str) -> None:
+        if self.limit is None or len(proof.split("\n")) <= self.limit:
             self.queue.put(proof)
 
     def fetch_proofs(self) -> NoReturn:
-        with futures.ThreadPoolExecutor(ProofServer.max_requests) as pool:
-            jobs: Set[futures.Future[None]] = set()
+        with futures.ThreadPoolExecutor(
+            max_workers=ProofServer.max_requests, thread_name_prefix="Fetcher"
+        ) as pool:
+            jobs: Set[futures.Future[Optional[str]]] = set()
             while True:
                 njobs = self.queue.maxsize - self.queue.qsize() - len(jobs)
                 if len(jobs) == 0:
                     njobs = max(njobs, 1)
-                jobs |= {pool.submit(self.enqueue_proof) for _ in range(njobs)}
-                done, _ = futures.wait(jobs, return_when=futures.FIRST_COMPLETED)
-                jobs -= done
+                jobs |= {pool.submit(self.fetch_proof) for _ in range(njobs)}
+                done, jobs = futures.wait(jobs, return_when=futures.FIRST_COMPLETED)
+
+                for job in done:
+                    proof = job.result()
+                    if proof is not None:
+                        self.enqueue_proof(proof)
+
 
 
 def daemon(*args: Any, **kwargs: Any) -> NoReturn:
