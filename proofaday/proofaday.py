@@ -24,7 +24,6 @@ RANDOM = "Special:Random"
 NPREFETCH = 10
 HOST = "localhost"
 PORT = 48484
-SERVER_TIMEOUT = 1
 CLIENT_TIMEOUT = 3
 LOG_PATH = Path(__file__).parent / "proofaday.log"
 
@@ -61,6 +60,9 @@ class ProofHandler(socketserver.BaseRequestHandler):
 
 
 class ProofServer(socketserver.ThreadingUDPServer):
+    proof_timeout = 1
+    daemon_threads = True
+
     max_log_bytes = 1024 * 1024
     max_requests = 5
 
@@ -89,7 +91,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
         url = URL + name
 
         try:
-            html = BS(requests.get(url, timeout=SERVER_TIMEOUT).text, "html.parser")
+            html = BS(requests.get(url, timeout=ProofServer.proof_timeout).text, "html.parser")
             proof = Proof(html)
             self.logger.debug(repr(proof))
             return str(proof)
@@ -122,7 +124,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
                 jobs -= done
 
 
-def daemon(*args: Any, **kwargs: Any) -> None:
+def daemon(*args: Any, **kwargs: Any) -> NoReturn:
     try:
         with ProofServer(*args, **kwargs) as server:
             server.serve_forever()

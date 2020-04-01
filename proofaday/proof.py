@@ -31,8 +31,8 @@ class Proof:
             ]
             raise InvalidProofException(f"Missing {', '.join(missing)}.")
 
-        theorem_body = theorem.parent.find_next_siblings(self.tags)
-        proof_body = proof.parent.find_next_siblings(self.tags)
+        theorem_body = theorem.parent.find_next_siblings(Proof.tags)
+        proof_body = proof.parent.find_next_siblings(Proof.tags)
         theorem_body = theorem_body[: -len(proof_body)]
 
         if any(x == [] for x in (theorem_body, proof_body)):
@@ -45,12 +45,12 @@ class Proof:
 
         # Strip text after proof end
         for idx, node in enumerate(proof_body):
-            if node.find(string=self.proof_end) is not None:
+            if node.find(string=Proof.proof_end) is not None:
                 proof_body = proof_body[: idx + 1]
                 break
         else:
             # No proof end found
-            raise InvalidProofException(f"Missing proof end ({self.proof_end})")
+            raise InvalidProofException(f"Missing proof end ({Proof.proof_end})")
 
         return (
             title.get_text(),
