@@ -5,7 +5,7 @@ import socket
 import socketserver
 import sys
 import threading
-from argparse import ArgumentParser
+from argparse import ArgumentParser, FileType
 from enum import IntEnum
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -235,6 +235,7 @@ def main() -> None:
     )
     parser.add_argument("-p", "--port", type=int, default=PORT)
     parser.add_argument("-t", "--timeout", type=float, default=CLIENT_TIMEOUT)
+    parser.add_argument("-o", "--output", type=FileType("w"), default=sys.stdout)
     parser.add_argument("-k", "--kill-server", dest="kill", action="store_true")
     args = parser.parse_args()
 
@@ -244,7 +245,7 @@ def main() -> None:
             sys.exit(not client.kill())
         if not client.check():
             client.spawn(**vars(args))
-        print(client.query(args.name))
+        print(client.query(args.name), file=args.output)
     except ProofServerError as e:
         sys.exit(str(e))
 
