@@ -25,7 +25,7 @@ NPREFETCH = 10
 HOST = "localhost"
 PORT = 48484
 CLIENT_TIMEOUT = 3
-LOG_PATH = str(Path(__file__).parent / "proofaday.log")
+LOG_PATH = Path(__file__).parent
 
 
 class MsgKind(IntEnum):
@@ -73,23 +73,29 @@ class ProofServer(socketserver.ThreadingUDPServer):
     max_requests = 5
 
     def __init__(
-        self, port: int, limit: int, nprefetch: int, debug: bool, **kwargs: Any
+        self,
+        port: int,
+        limit: int,
+        nprefetch: int,
+        debug: int,
+        log_path: Path,
+        **kwargs: Any
     ) -> None:
         super().__init__((HOST, port), ProofHandler)
-        level = logging.DEBUG if debug else logging.INFO
-        self.logger = self.init_logger(level, LOG_PATH)
+        level = {0: logging.NOTSET, 1: logging.INFO}.get(debug, logging.DEBUG)
+        self.logger = self.init_logger(level, log_path)
         self.queue: Queue[str] = Queue(maxsize=nprefetch)
         self.limit = limit
         threading.Thread(
             target=self.fetch_proofs, daemon=True, name="ServerLoop"
         ).start()
 
-    def init_logger(self, level: int, path: Optional[str]) -> logging.Logger:
+    def init_logger(self, level: int, path: Path) -> logging.Logger:
         logger = logging.getLogger(__name__)
         logger.setLevel(level)
-        if path is not None:
+        if level != logging.NOTSET:
             handler: logging.Handler = RotatingFileHandler(
-                path,
+                path / "proofaday.log",
                 maxBytes=ProofServer.max_log_bytes,
                 backupCount=1,
                 encoding="utf8",
@@ -221,7 +227,8 @@ def main() -> None:
 
     parser = ArgumentParser(description="Fetch a random proof")
     parser.add_argument("name", nargs="?", default=None)
-    parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument("-d", "--debug", action="count", default=0)
+    parser.add_argument("--log-path", dest="log_path", type=Path, default=LOG_PATH)
     parser.add_argument("-l", "--limit", type=pos, default=None)
     parser.add_argument(
         "-n", "--num-prefetch-proofs", dest="nprefetch", type=pos, default=NPREFETCH
