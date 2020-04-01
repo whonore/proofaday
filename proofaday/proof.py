@@ -1,7 +1,7 @@
 import re
 from typing import Any, List, Tuple
 
-from .syms import latex_to_text
+from proofaday.syms import latex_to_text
 
 
 class InvalidProofException(Exception):

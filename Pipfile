@@ -15,3 +15,5 @@ twine = "*"
 requests = "~=2.22.0"
 beautifulsoup4 = "~=4.8.0"
 pylatexenc = "~=2.1"
+python-daemon = "~=2.2.0"
+proofaday = {editable = true,path = "."}
