@@ -149,7 +149,6 @@ class ProofServer(socketserver.ThreadingUDPServer):
                         self.enqueue_proof(proof)
 
 
-
 def daemon(*args: Any, **kwargs: Any) -> NoReturn:
     try:
         with ProofServer(*args, **kwargs) as server:
