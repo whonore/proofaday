@@ -152,6 +152,24 @@ def spawn(**kwargs: Any) -> None:
             server.serve_forever()
 
 
+def start_server(status: Status, force: bool, **kwargs: Any) -> None:
+    if status.read() is not None:
+        if not force:
+            raise ServerError("Daemon already started.")
+        elif not status.remove():
+            raise ServerError("Failed to remove status file.")
+    spawn(**kwargs)
+
+
+def stop_server(status: Status) -> None:
+    data = status.read()
+    if data is None:
+        raise ServerError("Daemon not running.")
+    os.kill(data["pid"], signal.SIGTERM)
+    if not status.wait(exist=False):
+        raise ServerError("Failed to stop daemon.")
+
+
 def main() -> None:
     def pos(arg: str) -> int:
         if int(arg) <= 0:
@@ -175,25 +193,16 @@ def main() -> None:
     parser.add_argument("-f", "--force", action="store_true")
     args = parser.parse_args()
 
-    status = Status(args.status_path).read()
-    if args.action == "start":
-        if status is not None:
-            if not args.force:
-                sys.exit("Daemon already started.")
-            elif not Status(args.status_path).remove():
-                sys.exit("Failed to remove status file.")
-        try:
-            spawn(**vars(args))
-        except ServerError as e:
-            sys.exit(str(e))
-    elif args.action == "stop":
-        if status is None:
-            sys.exit("Daemon not running.")
-        os.kill(status["pid"], signal.SIGTERM)
-        if not Status(args.status_path).wait(exist=False):
-            sys.exit("Failed to stop daemon.")
-    else:
-        sys.exit(f"{args.action} is not yet supported.")
+    status = Status(args.status_path)
+    try:
+        if args.action == "start":
+            start_server(status, **vars(args))
+        elif args.action == "stop":
+            stop_server(status)
+        else:
+            sys.exit(f"Unrecognized action: {args.action}.")
+    except ServerError as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":
