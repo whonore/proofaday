@@ -13,11 +13,22 @@ Key = Literal["pid", "host", "port"]
 KEYS: Iterable[Key] = ["pid", "host", "port"]
 
 
+class StatusError(Exception):
+    pass
+
+
 class Status:
     poll_interval = 0.5
 
     def __init__(self, path: Path) -> None:
         self.file = path / consts.STATUS_FILE
+
+    def touch(self) -> bool:
+        try:
+            self.file.touch(exist_ok=False)
+            return True
+        except Exception:
+            return False
 
     def read(self) -> Optional[StatusData]:
         if self.file.is_file():
@@ -53,5 +64,5 @@ class Status:
     def __str__(self) -> str:
         data = self.read()
         if data is None:
-            raise ValueError()
+            raise ValueError
         return "\n".join(f"{k}={data[k]}" for k in KEYS)

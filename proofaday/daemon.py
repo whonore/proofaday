@@ -60,21 +60,25 @@ class ProofServer(socketserver.ThreadingUDPServer):
         status_path: Path,
         **kwargs: Any,
     ) -> None:
+        self.status = Status(status_path)
+        if not self.status.touch():
+            raise ServerError("Status file already exists or couldn't be created.")
+
         super().__init__((consts.HOST, port), ProofHandler)
         level = {0: logging.NOTSET, 1: logging.INFO}.get(debug, logging.DEBUG)
         self.logger = self.init_logger(level, log_path)
         self.queue: Queue[str] = Queue(maxsize=nprefetch)
         self.limit = limit
-        threading.Thread(
-            target=self.fetch_proofs, daemon=True, name="ServerLoop"
-        ).start()
-
         self.pid = os.getpid()
-        self.status = Status(status_path)
+
         host, port = self.server_address
         if not self.status.write(pid=self.pid, host=host, port=port):
             self.status.remove()
             raise ServerError("Failed to write status file.")
+
+        threading.Thread(
+            target=self.fetch_proofs, daemon=True, name="ServerLoop"
+        ).start()
 
     def init_logger(self, level: int, path: Path) -> logging.Logger:
         logger = logging.getLogger(__name__)
@@ -148,8 +152,11 @@ def spawn(**kwargs: Any) -> None:
             signal.SIGTERM,
             lambda signum, frame: threading.Thread(target=server.shutdown).start(),
         )
-        with ProofServer(**kwargs) as server:
-            server.serve_forever()
+        try:
+            with ProofServer(**kwargs) as server:
+                server.serve_forever()
+        except ServerError as e:
+            sys.exit(str(e))
 
 
 def server_start(status: Status, force: bool, **kwargs: Any) -> None:
