@@ -2,10 +2,9 @@ from enum import IntEnum
 
 
 class Action(IntEnum):
-    CHECK = 1
-    REQUEST = 2
-    RANDOM = 3
-    KILL = 4
+    REQUEST = 1
+    RANDOM = 2
+    KILL = 3
 
 
 class Message:
@@ -19,10 +18,6 @@ class Message:
     @staticmethod
     def decode(data: bytes) -> "Message":
         return Message(Action(data[0]), data[1:].decode())
-
-
-def check() -> Message:
-    return Message(Action.CHECK)
 
 
 def request(data: str) -> Message:

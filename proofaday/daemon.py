@@ -1,6 +1,8 @@
 import concurrent.futures as futures
 import logging
+import os
 import socketserver
+import sys
 import threading
 from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
@@ -16,6 +18,7 @@ from requests import exceptions as exs
 import proofaday.constants as consts
 from proofaday.message import Action, Message
 from proofaday.proof import InvalidProofException, Proof
+from proofaday.status import read_status, write_status
 
 
 class ProofHandler(socketserver.BaseRequestHandler):
@@ -26,9 +29,7 @@ class ProofHandler(socketserver.BaseRequestHandler):
         logger = server.logger
         logger.info("Received %s from (%s, %d)", msg.action, *self.client_address)
 
-        if msg.action is Action.CHECK:
-            reply = ""
-        elif msg.action is Action.REQUEST:
+        if msg.action is Action.REQUEST:
             logger.info("Fetching %s", msg.data)
             proof = server.fetch_proof(msg.data)
             reply = proof if proof is not None else ""
@@ -58,7 +59,8 @@ class ProofServer(socketserver.ThreadingUDPServer):
         nprefetch: int,
         debug: int,
         log_path: Path,
-        **kwargs: Any
+        status_path: Path,
+        **kwargs: Any,
     ) -> None:
         super().__init__((consts.HOST, port), ProofHandler)
         level = {0: logging.NOTSET, 1: logging.INFO}.get(debug, logging.DEBUG)
@@ -68,6 +70,8 @@ class ProofServer(socketserver.ThreadingUDPServer):
         threading.Thread(
             target=self.fetch_proofs, daemon=True, name="ServerLoop"
         ).start()
+        host, port = self.server_address
+        write_status(status_path, pid=os.getpid(), host=host, port=port)
 
     def init_logger(self, level: int, path: Path) -> logging.Logger:
         logger = logging.getLogger(__name__)
@@ -129,8 +133,9 @@ class ProofServer(socketserver.ThreadingUDPServer):
 
 
 def serve(**kwargs: Any) -> None:
-    with ProofServer(**kwargs) as server:
-        server.serve_forever()
+    with DaemonContext(stdout=sys.stdout, stderr=sys.stderr):
+        with ProofServer(**kwargs) as server:
+            server.serve_forever()
 
 
 def main() -> None:
@@ -139,11 +144,11 @@ def main() -> None:
             raise ValueError("not positive")
         return int(arg)
 
-    parser = ArgumentParser(description="Fetch a random proof")
+    parser = ArgumentParser(description="Proofaday daemon")
+    parser.add_argument("action", choices=["start", "stop", "restart"])
     parser.add_argument("-d", "--debug", action="count", default=0)
-    parser.add_argument(
-        "--log-path", dest="log_path", type=Path, default=consts.LOG_PATH
-    )
+    parser.add_argument("--log-path", type=Path, default=consts.LOG_PATH)
+    parser.add_argument("--status-path", type=Path, default=consts.STATUS_PATH)
     parser.add_argument("-l", "--limit", type=pos, default=None)
     parser.add_argument(
         "-n",
@@ -152,12 +157,17 @@ def main() -> None:
         type=pos,
         default=consts.NPREFETCH,
     )
-    parser.add_argument("-p", "--port", type=int, default=consts.PORT)
+    parser.add_argument("-p", "--port", type=int, default=0)
     parser.add_argument("-k", "--kill-server", dest="kill", action="store_true")
     args = parser.parse_args()
 
-    with DaemonContext():
+    status = read_status(args.status_path)
+    if args.action == "start":
+        if status is not None:
+            sys.exit("Daemon already started.")
         serve(**vars(args))
+    else:
+        sys.exit(f"{args.action} is not yet supported.")
 
 
 if __name__ == "__main__":

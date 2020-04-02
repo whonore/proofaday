@@ -5,6 +5,8 @@ RANDOM = "Special:Random"
 
 NPREFETCH = 10
 LOG_PATH = Path(__file__).parent
+STATUS_PATH = Path(__file__).parent
+STATUS_FILE = ".proofaday.status"
 
 HOST = "localhost"
 PORT = 48484
