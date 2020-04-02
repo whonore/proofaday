@@ -199,7 +199,11 @@ def main() -> None:
     )
     parser.add_argument("-p", "--port", type=int, default=0)
     parser.add_argument("-f", "--force", action="store_true")
+    parser.add_argument("-q", "--quiet", action="store_true")
     args = parser.parse_args()
+
+    if args.quiet:
+        sys.stdout = sys.stderr = open(os.devnull, "w")
 
     status = Status(args.status_path)
     try:
