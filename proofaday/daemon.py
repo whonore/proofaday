@@ -199,6 +199,9 @@ def main() -> None:
             start_server(status, **vars(args))
         elif args.action == "stop":
             stop_server(status)
+        elif args.action == "restart":
+            stop_server(status)
+            start_server(status, **vars(args))
         else:
             sys.exit(f"Unrecognized action: {args.action}.")
     except ServerError as e:
