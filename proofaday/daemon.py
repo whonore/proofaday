@@ -172,12 +172,16 @@ def main() -> None:
         default=consts.NPREFETCH,
     )
     parser.add_argument("-p", "--port", type=int, default=0)
+    parser.add_argument("-f", "--force", action="store_true")
     args = parser.parse_args()
 
     status = Status(args.status_path).read()
     if args.action == "start":
         if status is not None:
-            sys.exit("Daemon already started.")
+            if not args.force:
+                sys.exit("Daemon already started.")
+            elif not Status(args.status_path).remove():
+                sys.exit("Failed to remove status file.")
         try:
             spawn(**vars(args))
         except ServerError as e:
