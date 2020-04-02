@@ -176,8 +176,10 @@ def server_stop(status: Status) -> None:
         raise ServerError("Failed to stop daemon.")
 
 
-def server_status(status: Status) -> str:
+def server_status(status: Status, wait: bool) -> str:
     try:
+        if wait:
+            status.wait(exist=True, timeout=None)
         return str(status)
     except ValueError:
         raise ServerError("Failed to read status file.")
@@ -206,6 +208,7 @@ def main() -> None:
     parser.add_argument("-p", "--port", type=int, default=0)
     parser.add_argument("-f", "--force", action="store_true")
     parser.add_argument("-q", "--quiet", action="store_true")
+    parser.add_argument("-w", "--wait", action="store_true")
     args = parser.parse_args()
 
     if args.quiet:
@@ -221,7 +224,7 @@ def main() -> None:
             server_stop(status)
             server_start(status, **vars(args))
         elif args.action == "status":
-            print(server_status(status))
+            print(server_status(status, args.wait))
         else:
             sys.exit(f"Unrecognized action: {args.action}.")
     except ServerError as e:
