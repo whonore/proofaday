@@ -1,6 +1,7 @@
 import concurrent.futures as futures
 import logging
 import os
+import signal
 import socketserver
 import sys
 import threading
@@ -18,7 +19,11 @@ from requests import exceptions as exs
 import proofaday.constants as consts
 from proofaday.message import Action, Message
 from proofaday.proof import InvalidProofException, Proof
-from proofaday.status import read_status, write_status
+from proofaday.status import Status
+
+
+class ServerError(Exception):
+    pass
 
 
 class ProofHandler(socketserver.BaseRequestHandler):
@@ -36,21 +41,14 @@ class ProofHandler(socketserver.BaseRequestHandler):
         elif msg.action is Action.RANDOM:
             logger.info("Dequeuing proof")
             reply = server.queue.get()
-        elif msg.action is Action.KILL:
-            logger.info("Shutting down server")
-            sock.sendto(b"", self.client_address)
-            server.shutdown()
-            logger.info("Server shutdown")
-            return
         sock.sendto(reply.encode(), self.client_address)
 
 
 class ProofServer(socketserver.ThreadingUDPServer):
-    proof_timeout = 1
     daemon_threads = True
-
+    proof_timeout = 1
     max_log_bytes = 1024 * 1024
-    max_requests = 5
+    max_threads = 5
 
     def __init__(
         self,
@@ -70,15 +68,20 @@ class ProofServer(socketserver.ThreadingUDPServer):
         threading.Thread(
             target=self.fetch_proofs, daemon=True, name="ServerLoop"
         ).start()
+
+        self.pid = os.getpid()
+        self.status = Status(status_path)
         host, port = self.server_address
-        write_status(status_path, pid=os.getpid(), host=host, port=port)
+        if not self.status.write(pid=self.pid, host=host, port=port):
+            self.status.remove()
+            raise ServerError("Failed to write status file.")
 
     def init_logger(self, level: int, path: Path) -> logging.Logger:
         logger = logging.getLogger(__name__)
         logger.setLevel(level)
         if level != logging.NOTSET:
             handler: logging.Handler = RotatingFileHandler(
-                path / "proofaday.log",
+                path / consts.LOG_FILE,
                 maxBytes=ProofServer.max_log_bytes,
                 backupCount=1,
                 encoding="utf8",
@@ -88,6 +91,12 @@ class ProofServer(socketserver.ThreadingUDPServer):
         handler.setFormatter(logging.Formatter("%(threadName)s: %(message)s"))
         logger.addHandler(handler)
         return logger
+
+    def server_close(self) -> None:
+        super().server_close()
+        status = self.status.read()
+        if status is not None and status["pid"] == self.pid:
+            self.status.remove()
 
     def fetch_proof(self, name: Optional[str] = None) -> Optional[str]:
         if name is None:
@@ -116,7 +125,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
 
     def fetch_proofs(self) -> NoReturn:
         with futures.ThreadPoolExecutor(
-            max_workers=ProofServer.max_requests, thread_name_prefix="Fetcher"
+            max_workers=ProofServer.max_threads, thread_name_prefix="Fetcher"
         ) as pool:
             jobs: Set[futures.Future[Optional[str]]] = set()
             while True:
@@ -132,8 +141,13 @@ class ProofServer(socketserver.ThreadingUDPServer):
                         self.enqueue_proof(proof)
 
 
-def serve(**kwargs: Any) -> None:
+def spawn(**kwargs: Any) -> None:
     with DaemonContext(stdout=sys.stdout, stderr=sys.stderr):
+        # N.B. shutdown() must be called in a separate thread
+        signal.signal(
+            signal.SIGTERM,
+            lambda signum, frame: threading.Thread(target=server.shutdown).start(),
+        )
         with ProofServer(**kwargs) as server:
             server.serve_forever()
 
@@ -158,14 +172,22 @@ def main() -> None:
         default=consts.NPREFETCH,
     )
     parser.add_argument("-p", "--port", type=int, default=0)
-    parser.add_argument("-k", "--kill-server", dest="kill", action="store_true")
     args = parser.parse_args()
 
-    status = read_status(args.status_path)
+    status = Status(args.status_path).read()
     if args.action == "start":
         if status is not None:
             sys.exit("Daemon already started.")
-        serve(**vars(args))
+        try:
+            spawn(**vars(args))
+        except ServerError as e:
+            sys.exit(str(e))
+    elif args.action == "stop":
+        if status is None:
+            sys.exit("Daemon not running.")
+        os.kill(status["pid"], signal.SIGTERM)
+        if not Status(args.status_path).wait(exist=False):
+            sys.exit("Failed to stop daemon.")
     else:
         sys.exit(f"{args.action} is not yet supported.")
 

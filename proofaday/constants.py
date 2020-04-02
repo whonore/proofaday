@@ -5,6 +5,7 @@ RANDOM = "Special:Random"
 
 NPREFETCH = 10
 LOG_PATH = Path(__file__).parent
+LOG_FILE = "proofaday.log"
 STATUS_PATH = Path(__file__).parent
 STATUS_FILE = ".proofaday.status"
 

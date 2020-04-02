@@ -8,7 +8,7 @@ from typing import Optional
 import proofaday.constants as consts
 import proofaday.message as message
 from proofaday.message import Message
-from proofaday.status import read_status
+from proofaday.status import Status
 
 
 class ClientError(Exception):
@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument("-o", "--output", type=FileType("w"), default=sys.stdout)
     args = parser.parse_args()
 
-    status = read_status(args.status_path)
+    status = Status(args.status_path).read()
     if status is None:
         sys.exit("Daemon is not running.")
 

@@ -4,7 +4,6 @@ from enum import IntEnum
 class Action(IntEnum):
     REQUEST = 1
     RANDOM = 2
-    KILL = 3
 
 
 class Message:
@@ -26,7 +25,3 @@ def request(data: str) -> Message:
 
 def random() -> Message:
     return Message(Action.RANDOM)
-
-
-def kill() -> Message:
-    return Message(Action.KILL)
