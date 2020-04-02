@@ -152,7 +152,7 @@ def spawn(**kwargs: Any) -> None:
             server.serve_forever()
 
 
-def start_server(status: Status, force: bool, **kwargs: Any) -> None:
+def server_start(status: Status, force: bool, **kwargs: Any) -> None:
     if status.read() is not None:
         if not force:
             raise ServerError("Daemon already started.")
@@ -161,7 +161,7 @@ def start_server(status: Status, force: bool, **kwargs: Any) -> None:
     spawn(**kwargs)
 
 
-def stop_server(status: Status) -> None:
+def server_stop(status: Status) -> None:
     data = status.read()
     if data is None:
         raise ServerError("Daemon not running.")
@@ -170,14 +170,22 @@ def stop_server(status: Status) -> None:
         raise ServerError("Failed to stop daemon.")
 
 
+def server_status(status: Status) -> str:
+    try:
+        return str(status)
+    except ValueError:
+        raise ServerError("Failed to read status file.")
+
+
 def main() -> None:
     def pos(arg: str) -> int:
         if int(arg) <= 0:
             raise ValueError("not positive")
         return int(arg)
 
+    actions = ["start", "stop", "restart", "status"]
     parser = ArgumentParser(description="Proofaday daemon")
-    parser.add_argument("action", choices=["start", "stop", "restart"])
+    parser.add_argument("action", choices=actions)
     parser.add_argument("-d", "--debug", action="count", default=0)
     parser.add_argument("--log-path", type=Path, default=consts.LOG_PATH)
     parser.add_argument("--status-path", type=Path, default=consts.STATUS_PATH)
@@ -196,12 +204,14 @@ def main() -> None:
     status = Status(args.status_path)
     try:
         if args.action == "start":
-            start_server(status, **vars(args))
+            server_start(status, **vars(args))
         elif args.action == "stop":
-            stop_server(status)
+            server_stop(status)
         elif args.action == "restart":
-            stop_server(status)
-            start_server(status, **vars(args))
+            server_stop(status)
+            server_start(status, **vars(args))
+        elif args.action == "status":
+            print(server_status(status))
         else:
             sys.exit(f"Unrecognized action: {args.action}.")
     except ServerError as e:

@@ -2,12 +2,15 @@ import json
 import threading
 import time
 from pathlib import Path
-from typing import Any, Optional
-from typing_extensions import TypedDict
+from typing import Any, Iterable, Optional
+from typing_extensions import Literal, TypedDict
 
 import proofaday.constants as consts
 
 StatusData = TypedDict("StatusData", {"pid": int, "host": str, "port": int})
+Key = Literal["pid", "host", "port"]
+
+KEYS: Iterable[Key] = ["pid", "host", "port"]
 
 
 class Status:
@@ -46,3 +49,9 @@ class Status:
         wait_thread.join(timeout=timeout)
         stop.set()
         return self.file.is_file() == exist
+
+    def __str__(self) -> str:
+        data = self.read()
+        if data is None:
+            raise ValueError()
+        return "\n".join(f"{k}={data[k]}" for k in KEYS)
