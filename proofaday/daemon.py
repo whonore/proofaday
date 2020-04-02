@@ -69,10 +69,9 @@ class ProofServer(socketserver.ThreadingUDPServer):
         self.logger = self.init_logger(level, log_path)
         self.queue: Queue[str] = Queue(maxsize=nprefetch)
         self.limit = limit
-        self.pid = os.getpid()
 
         host, port = self.server_address
-        if not self.status.write(pid=self.pid, host=host, port=port):
+        if not self.status.write(pid=os.getpid(), host=host, port=port):
             self.status.remove()
             raise ServerError("Failed to write status file.")
 
@@ -99,7 +98,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
     def server_close(self) -> None:
         super().server_close()
         status = self.status.read()
-        if status is not None and status["pid"] == self.pid:
+        if status is not None and status["pid"] == os.getpid():
             self.status.remove()
 
     def fetch_proof(self, name: Optional[str] = None) -> Optional[str]:
