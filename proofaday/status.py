@@ -3,6 +3,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any, Iterable, Optional
+
 from typing_extensions import Literal, TypedDict
 
 import proofaday.constants as consts
