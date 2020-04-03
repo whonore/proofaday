@@ -55,7 +55,9 @@ class Status:
 
     def wait(self, exist: bool, timeout: Optional[float] = 1.5) -> bool:
         stop = threading.Event()
-        wait_thread = threading.Thread(target=self._wait, args=(exist, stop))
+        wait_thread = threading.Thread(
+            target=self._wait, args=(exist, stop), daemon=True
+        )
         wait_thread.start()
         wait_thread.join(timeout=timeout)
         stop.set()
