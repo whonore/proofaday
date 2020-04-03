@@ -35,7 +35,7 @@ setup(
     entry_points={
         "console_scripts": [
             "proofaday=proofaday.proofaday:main",
-            "dproofaday=proofaday.daemon:main",
+            "dproofaday=proofaday.daemon_cli:main",
         ],
     },
 )

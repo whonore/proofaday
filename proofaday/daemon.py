@@ -5,7 +5,6 @@ import signal
 import socketserver
 import sys
 import threading
-from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from queue import Queue
@@ -53,14 +52,13 @@ class ProofServer(socketserver.ThreadingUDPServer):
     def __init__(
         self,
         port: int,
-        limit: int,
+        line_limit: int,
         nprefetch: int,
         debug: int,
         log_path: Path,
-        status_path: Path,
-        **kwargs: Any,
+        status: Status,
     ) -> None:
-        self.status = Status(status_path)
+        self.status = status
         if not self.status.touch():
             raise ServerError("Status file already exists or couldn't be created.")
 
@@ -68,7 +66,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
         level = {0: logging.NOTSET, 1: logging.INFO}.get(debug, logging.DEBUG)
         self.logger = self.init_logger(level, log_path)
         self.queue: Queue[str] = Queue(maxsize=nprefetch)
-        self.limit = limit
+        self.limit = line_limit if line_limit > 0 else None
 
         host, port = self.server_address
         if not self.status.write(pid=os.getpid(), host=host, port=port):
@@ -156,80 +154,3 @@ def spawn(**kwargs: Any) -> None:
                 server.serve_forever()
         except ServerError as e:
             sys.exit(str(e))
-
-
-def server_start(status: Status, force: bool, **kwargs: Any) -> None:
-    if status.read() is not None:
-        if not force:
-            raise ServerError("Daemon already started.")
-        elif not status.remove():
-            raise ServerError("Failed to remove status file.")
-    spawn(**kwargs)
-
-
-def server_stop(status: Status) -> None:
-    data = status.read()
-    if data is None:
-        raise ServerError("Daemon not running.")
-    os.kill(data["pid"], signal.SIGTERM)
-    if not status.wait(exist=False):
-        raise ServerError("Failed to stop daemon.")
-
-
-def server_status(status: Status, wait: bool) -> str:
-    try:
-        if wait:
-            status.wait(exist=True, timeout=None)
-        return str(status)
-    except ValueError:
-        raise ServerError("Failed to read status file.")
-
-
-def main() -> None:
-    def pos(arg: str) -> int:
-        if int(arg) <= 0:
-            raise ValueError("not positive")
-        return int(arg)
-
-    actions = ["start", "stop", "restart", "status"]
-    parser = ArgumentParser(description="Proofaday daemon")
-    parser.add_argument("action", choices=actions)
-    parser.add_argument("-d", "--debug", action="count", default=0)
-    parser.add_argument("--log-path", type=Path, default=consts.LOG_PATH)
-    parser.add_argument("--status-path", type=Path, default=consts.STATUS_PATH)
-    parser.add_argument("-l", "--limit", type=pos, default=None)
-    parser.add_argument(
-        "-n",
-        "--num-prefetch-proofs",
-        dest="nprefetch",
-        type=pos,
-        default=consts.NPREFETCH,
-    )
-    parser.add_argument("-p", "--port", type=int, default=0)
-    parser.add_argument("-f", "--force", action="store_true")
-    parser.add_argument("-q", "--quiet", action="store_true")
-    parser.add_argument("-w", "--wait", action="store_true")
-    args = parser.parse_args()
-
-    if args.quiet:
-        sys.stdout = sys.stderr = open(os.devnull, "w")
-
-    status = Status(args.status_path)
-    try:
-        if args.action == "start":
-            server_start(status, **vars(args))
-        elif args.action == "stop":
-            server_stop(status)
-        elif args.action == "restart":
-            server_stop(status)
-            server_start(status, **vars(args))
-        elif args.action == "status":
-            print(server_status(status, args.wait))
-        else:
-            sys.exit(f"Unrecognized action: {args.action}.")
-    except ServerError as e:
-        sys.exit(str(e))
-
-
-if __name__ == "__main__":
-    main()

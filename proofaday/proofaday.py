@@ -1,12 +1,13 @@
 import socket
 import sys
-from argparse import ArgumentParser, FileType
 from pathlib import Path
-from typing import Optional
+from typing import IO, Optional
 
+import click
 
 import proofaday.constants as consts
 import proofaday.message as message
+from proofaday.cli_util import ClickPath
 from proofaday.message import Message
 from proofaday.status import Status
 
@@ -32,27 +33,45 @@ class ProofClient:
             except socket.timeout:
                 raise ClientError("Connection timed out.")
 
-    def query(self, name: Optional[str]) -> str:
-        if name is not None:
-            return self.send(message.request(name))
+    def query(self, proof: Optional[str]) -> str:
+        if proof is not None:
+            return self.send(message.request(proof))
         return self.send(message.random())
 
 
-def main() -> None:
-    parser = ArgumentParser(description="Fetch a random proof")
-    parser.add_argument("name", nargs="?", default=None)
-    parser.add_argument("--status-path", type=Path, default=consts.STATUS_PATH)
-    parser.add_argument("-t", "--timeout", type=float, default=consts.CLIENT_TIMEOUT)
-    parser.add_argument("-o", "--output", type=FileType("w"), default=sys.stdout)
-    args = parser.parse_args()
-
-    status = Status(args.status_path).read()
+@click.command(help="Fetch a random proof.")
+@click.argument("proof", required=False, default=None)
+@click.option(
+    "--status-path",
+    help="Directory to place the status file.",
+    type=ClickPath(exists=True, file_okay=False),
+    default=consts.STATUS_PATH,
+)
+@click.option(
+    "-t",
+    "--timeout",
+    help="Time to wait for a proof (in seconds).",
+    type=float,
+    default=consts.CLIENT_TIMEOUT,
+    show_default=True,
+)
+@click.option(
+    "-o",
+    "--output",
+    help="The file to print output to.",
+    type=click.File("w"),
+    default=sys.stdout,
+)
+def main(
+    proof: Optional[str], status_path: Path, timeout: float, output: IO[str]
+) -> None:
+    status = Status(status_path).read()
     if status is None:
         sys.exit("Daemon is not running.")
 
-    client = ProofClient(status["host"], status["port"], args.timeout)
+    client = ProofClient(status["host"], status["port"], timeout)
     try:
-        print(client.query(args.name), file=args.output)
+        click.echo(client.query(proof), file=output)
     except ClientError as e:
         sys.exit(str(e))
 
