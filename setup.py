@@ -7,7 +7,7 @@ with open(dir / "README.md", "r") as f:
 
 setup(
     name="proofaday",
-    version="0.2.4",
+    version="0.2.5",
     author="Wolf Honoré",
     author_email="wolfhonore@gmail.com",
     description="Print random proofs from ProofWiki",
@@ -31,6 +31,7 @@ setup(
         "beautifulsoup4~=4.8.0",
         "pylatexenc~=2.1",
         "python-daemon~=2.2.0",
+        "click~=7.1.0",
     ],
     entry_points={
         "console_scripts": [
