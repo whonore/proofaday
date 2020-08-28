@@ -100,9 +100,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
         if status is not None and status["pid"] == os.getpid():
             self.status.remove()
 
-    def fetch_proof(self, name: Optional[str] = None) -> Optional[str]:
-        if name is None:
-            name = consts.RANDOM
+    def fetch_proof(self, name: str = consts.RANDOM) -> Optional[str]:
         url = consts.URL + name
 
         try:
