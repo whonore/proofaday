@@ -17,8 +17,6 @@ class ClientError(Exception):
 
 
 class ProofClient:
-    retries = 10
-
     def __init__(self, host: str, port: int, timeout: float) -> None:
         self.host = host
         self.port = port

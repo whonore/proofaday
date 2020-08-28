@@ -1,15 +1,17 @@
 from pathlib import Path
 
-URL = "https://proofwiki.org/wiki/"
-RANDOM = "Special:Random"
+from typing_extensions import Final
 
-NPREFETCH = 10
-LOG_PATH = Path(__file__).parent
-LOG_FILE = "proofaday.log"
-STATUS_PATH = Path(__file__).parent
-STATUS_FILE = ".proofaday.status"
+URL: Final = "https://proofwiki.org/wiki/"
+RANDOM: Final = "Special:Random"
 
-HOST = "localhost"
-PORT = 48484
+NPREFETCH: Final = 10
+LOG_PATH: Final = Path(__file__).parent
+LOG_FILE: Final = "proofaday.log"
+STATUS_PATH: Final = Path(__file__).parent
+STATUS_FILE: Final = ".proofaday.status"
 
-CLIENT_TIMEOUT = 3
+HOST: Final = "localhost"
+PORT: Final = 48484
+
+CLIENT_TIMEOUT: Final = 3

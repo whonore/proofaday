@@ -14,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup as BS  # type: ignore[import]
 from daemon import DaemonContext  # type: ignore[import]
 from requests import exceptions as exs
+from typing_extensions import Final
 
 import proofaday.constants as consts
 from proofaday.message import Action, Message
@@ -45,9 +46,9 @@ class ProofHandler(socketserver.BaseRequestHandler):
 
 class ProofServer(socketserver.ThreadingUDPServer):
     daemon_threads = True
-    proof_timeout = 1
-    max_log_bytes = 1024 * 1024
-    max_threads = 5
+    proof_timeout: Final = 1
+    max_log_bytes: Final = 1024 * 1024
+    max_threads: Final = 5
 
     def __init__(
         self,

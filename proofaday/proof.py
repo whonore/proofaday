@@ -1,6 +1,8 @@
 import re
 from typing import Any, List, Tuple
 
+from typing_extensions import Final
+
 from proofaday.syms import latex_to_text
 
 
@@ -9,8 +11,8 @@ class InvalidProofException(Exception):
 
 
 class Proof:
-    proof_end = re.compile("blacksquare")
-    tags = ("p", "dl", "table")
+    proof_end: Final = re.compile("blacksquare")
+    tags: Final = ("p", "dl", "table")
 
     def __init__(self, html: Any) -> None:
         self.title, self._theorem, self._proof = self.parse(html)

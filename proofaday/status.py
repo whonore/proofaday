@@ -4,14 +4,14 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Final, Literal, TypedDict
 
 import proofaday.constants as consts
 
 StatusData = TypedDict("StatusData", {"pid": int, "host": str, "port": int})
 Key = Literal["pid", "host", "port"]
 
-KEYS: Iterable[Key] = ["pid", "host", "port"]
+KEYS: Final[Iterable[Key]] = ["pid", "host", "port"]
 
 
 class StatusError(Exception):
@@ -19,7 +19,7 @@ class StatusError(Exception):
 
 
 class Status:
-    poll_interval = 0.5
+    poll_interval: Final = 0.5
 
     def __init__(self, path: Path) -> None:
         self.file = path / consts.STATUS_FILE

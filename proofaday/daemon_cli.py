@@ -111,9 +111,13 @@ def stop(status: Status) -> None:
     data = status.read()
     if data is None:
         raise ServerError("Daemon not running.")
-    os.kill(data["pid"], signal.SIGTERM)
-    if not status.wait(exist=False):
-        raise ServerError("Failed to stop daemon.")
+    try:
+        os.kill(data["pid"], signal.SIGTERM)
+    except ProcessLookupError:
+        raise ServerError("Daemon not running.")
+    finally:
+        if not status.wait(exist=False):
+            raise ServerError("Failed to stop daemon.")
 
 
 @main.command(help="Restart the daemon.")
