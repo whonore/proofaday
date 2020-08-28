@@ -11,11 +11,11 @@ isort = "*"
 mypy = "*"
 typing_extensions = "*"
 twine = "*"
+proofaday = {editable = true,path = "."}
 
 [packages]
-requests = "~=2.22.0"
-beautifulsoup4 = "~=4.8.0"
-pylatexenc = "~=2.1"
+requests = "~=2.24.0"
+beautifulsoup4 = "~=4.9.0"
+pylatexenc = "~=2.7"
 python-daemon = "~=2.2.0"
 click = "~=7.1.0"
-proofaday = {editable = true,path = "."}
