@@ -1,13 +1,10 @@
-from pylatexenc.latex2text import (  # type: ignore
-    LatexNodes2Text,
-    MacroTextSpec,
-    get_default_latex_context_db as l2t_ctx,
+from pylatexenc.latex2text import LatexNodes2Text, MacroTextSpec  # type: ignore[import]
+from pylatexenc.latex2text import get_default_latex_context_db as l2t_ctx
+from pylatexenc.latex2text._defaultspecs import (  # type: ignore[import]
+    make_accented_char,
 )
-from pylatexenc.latex2text._defaultspecs import make_accented_char  # type: ignore
-from pylatexenc.latexwalker import (  # type: ignore
-    get_default_latex_context_db as lwalk_ctx,
-)
-from pylatexenc.macrospec import std_macro  # type: ignore
+from pylatexenc.latexwalker import get_default_latex_context_db as lwalk_ctx
+from pylatexenc.macrospec import std_macro  # type: ignore[import]
 
 MACROS = [
     MacroTextSpec(name, simplify_repl=repl)
@@ -609,7 +606,8 @@ ACCENTS = (
 for name, combine in ACCENTS:
     MACROS.append(
         MacroTextSpec(
-            name, lambda x, l2tobj, c=combine: make_accented_char(x, c, l2tobj)
+            name,
+            lambda x, l2tobj, c=combine: make_accented_char(x, c, l2tobj),
         )
     )
     ARGS.append(std_macro(name, False, 1))

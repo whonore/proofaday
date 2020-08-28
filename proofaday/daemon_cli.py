@@ -28,7 +28,10 @@ F = TypeVar("F", bound=Callable[..., Any])
 def start_options(f: F) -> F:
     for opt in (
         click.option(
-            "-p", "--port", help="Port for the daemon to listen on.", default=0
+            "-p",
+            "--port",
+            help="Port for the daemon to listen on.",
+            default=0,
         ),
         click.option(
             "-f",
@@ -53,7 +56,12 @@ def start_options(f: F) -> F:
             default=consts.NPREFETCH,
             show_default=True,
         ),
-        click.option("-d", "--debug", help="Enable debugging output.", count=True),
+        click.option(
+            "-d",
+            "--debug",
+            help="Enable debugging output.",
+            count=True,
+        ),
         click.option(
             "--log-path",
             help="Directory to place the debug log.",
@@ -66,7 +74,12 @@ def start_options(f: F) -> F:
 
 
 @click.group(cls=ServerInvoker, help="A daemon to fetch proofs.")
-@click.option("-q", "--quiet/--no-quiet", help="Disable output.", default=False)
+@click.option(
+    "-q",
+    "--quiet/--no-quiet",
+    help="Disable output.",
+    default=False,
+)
 @click.option(
     "--status-path",
     help="Directory to place the status file.",

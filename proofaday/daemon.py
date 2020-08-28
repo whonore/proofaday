@@ -116,7 +116,8 @@ class ProofServer(socketserver.ThreadingUDPServer):
             self.logger.exception("Invalid proof: %s", str(e))
         except Exception as e:
             self.logger.exception(
-                "Unexpected exception while fetching a proof: %s", str(e)
+                "Unexpected exception while fetching a proof: %s",
+                str(e),
             )
         return None
 
@@ -126,7 +127,8 @@ class ProofServer(socketserver.ThreadingUDPServer):
 
     def fetch_proofs(self) -> NoReturn:
         with futures.ThreadPoolExecutor(
-            max_workers=ProofServer.max_threads, thread_name_prefix="Fetcher"
+            max_workers=ProofServer.max_threads,
+            thread_name_prefix="Fetcher",
         ) as pool:
             jobs: Set[futures.Future[Optional[str]]] = set()
             while True:
