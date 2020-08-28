@@ -1,10 +1,8 @@
-from pylatexenc.latex2text import LatexNodes2Text, MacroTextSpec  # type: ignore[import]
+from pylatexenc.latex2text import LatexNodes2Text, MacroTextSpec
 from pylatexenc.latex2text import get_default_latex_context_db as l2t_ctx
-from pylatexenc.latex2text._defaultspecs import (  # type: ignore[import]
-    make_accented_char,
-)
+from pylatexenc.latex2text._defaultspecs import make_accented_char
 from pylatexenc.latexwalker import get_default_latex_context_db as lwalk_ctx
-from pylatexenc.macrospec import std_macro  # type: ignore[import]
+from pylatexenc.macrospec import std_macro
 
 MACROS = [
     MacroTextSpec(name, simplify_repl=repl)

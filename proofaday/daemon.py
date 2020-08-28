@@ -11,8 +11,8 @@ from queue import Queue
 from typing import Any, NoReturn, Optional, Set
 
 import requests
-from bs4 import BeautifulSoup as BS  # type: ignore[import]
-from daemon import DaemonContext  # type: ignore[import]
+from bs4 import BeautifulSoup as BS
+from daemon import DaemonContext
 from requests import exceptions as exs
 from typing_extensions import Final
 
