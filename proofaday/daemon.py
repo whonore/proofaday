@@ -82,6 +82,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
         logger = logging.getLogger(__name__)
         logger.setLevel(level)
         if level != logging.NOTSET:
+            path.mkdir(parents=True, exist_ok=True)
             handler: logging.Handler = RotatingFileHandler(
                 path / consts.LOG_FILE,
                 maxBytes=ProofServer.max_log_bytes,

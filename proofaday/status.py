@@ -26,6 +26,7 @@ class Status:
 
     def touch(self) -> bool:
         try:
+            self.file.parent.mkdir(parents=True, exist_ok=True)
             self.file.touch(exist_ok=False)
             return True
         except Exception:

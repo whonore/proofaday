@@ -42,8 +42,8 @@ class ProofClient:
 @click.option(
     "--status-path",
     help="Directory to place the status file.",
-    type=ClickPath(exists=True, file_okay=False),
-    default=consts.STATUS_PATH,
+    type=ClickPath(exists=False, file_okay=False),
+    default=consts.DATA_PATH,
 )
 @click.option(
     "-t",

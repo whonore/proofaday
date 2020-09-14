@@ -65,7 +65,7 @@ def start_options(f: F) -> F:
         click.option(
             "--log-path",
             help="Directory to place the debug log.",
-            type=ClickPath(exists=True, file_okay=False),
+            type=ClickPath(exists=False, file_okay=False),
             default=consts.LOG_PATH,
         ),
     ):
@@ -83,8 +83,8 @@ def start_options(f: F) -> F:
 @click.option(
     "--status-path",
     help="Directory to place the status file.",
-    type=ClickPath(exists=True, file_okay=False),
-    default=consts.STATUS_PATH,
+    type=ClickPath(exists=False, file_okay=False),
+    default=consts.DATA_PATH,
 )
 @click.pass_context
 def main(ctx: click.core.Context, quiet: bool, status_path: Path) -> None:
