@@ -7,7 +7,7 @@ with open(dir / "README.md", "r") as f:
 
 setup(
     name="proofaday",
-    version="0.2.7",
+    version="0.2.8",
     author="Wolf Honoré",
     author_email="wolfhonore@gmail.com",
     description="Print random proofs from ProofWiki",
@@ -27,11 +27,12 @@ setup(
         "Operating System :: POSIX :: Linux",
     ],
     install_requires=[
-        "requests~=2.22.0",
-        "beautifulsoup4~=4.8.0",
-        "pylatexenc~=2.1",
+        "requests~=2.24.0",
+        "beautifulsoup4~=4.9.0",
+        "pylatexenc~=2.7",
         "python-daemon~=2.2.0",
         "click~=7.1.0",
+        "appdirs~=1.4.0",
     ],
     entry_points={
         "console_scripts": [
