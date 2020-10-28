@@ -20,4 +20,4 @@ upload:
 	twine upload --skip-existing dist/*
 
 clean:
-	rm -r build/ dist/ $(PACKAGE).egg-info/
+	rm -rf build/ dist/ $(PACKAGE).egg-info/
