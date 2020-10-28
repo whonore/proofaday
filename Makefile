@@ -1,6 +1,6 @@
 PACKAGE := proofaday
 
-.PHONY: all lint upload
+.PHONY: all lint upload clean
 
 all:
 	@echo 'Usage: make (lint | upload | clean)'
