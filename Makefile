@@ -1,13 +1,17 @@
 PACKAGE := proofaday
 
-.PHONY: all lint upload clean
+.PHONY: all format lint upload clean
 
 all:
-	@echo 'Usage: make (lint | upload | clean)'
+	@echo 'Usage: make (format | lint | upload | clean)'
 
-lint:
+format:
 	black $(PACKAGE)
 	isort $(PACKAGE)
+
+lint:
+	black --check $(PACKAGE)
+	isort --check $(PACKAGE)
 	mypy --show-error-codes -p $(PACKAGE)
 	flake8 $(PACKAGE)
 
