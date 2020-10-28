@@ -7,7 +7,7 @@ with open(dir / "README.md", "r") as f:
 
 setup(
     name="proofaday",
-    version="0.2.9",
+    version="0.2.10",
     author="Wolf Honoré",
     author_email="wolfhonore@gmail.com",
     description="Print random proofs from ProofWiki",
