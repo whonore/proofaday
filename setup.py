@@ -27,12 +27,12 @@ setup(
         "Operating System :: POSIX :: Linux",
     ],
     install_requires=[
-        "requests~=2.24.0",
+        "appdirs~=1.4.0",
         "beautifulsoup4~=4.9.0",
+        "click~=7.1.0",
         "pylatexenc~=2.7",
         "python-daemon~=2.2.0",
-        "click~=7.1.0",
-        "appdirs~=1.4.0",
+        "requests~=2.24.0",
     ],
     entry_points={
         "console_scripts": [
