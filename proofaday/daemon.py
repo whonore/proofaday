@@ -7,8 +7,8 @@ import sys
 import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from queue import Queue
 from typing import Any, NoReturn, Optional, Set
+from queue import Queue
 
 import requests
 from bs4 import BeautifulSoup as BS
@@ -36,7 +36,7 @@ class ProofHandler(socketserver.BaseRequestHandler):
 
         if msg.action is Action.REQUEST:
             logger.info("Fetching %s", msg.data)
-            proof = server.fetch_proof(msg.data)
+            proof  = server.fetch_proof(msg.data)
             reply = proof if proof is not None else ""
         elif msg.action is Action.RANDOM:
             logger.info("Dequeuing proof")
