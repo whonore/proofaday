@@ -61,7 +61,10 @@ class ProofClient:
     default=sys.stdout,
 )
 def main(
-    proof: Optional[str], status_path: Path, timeout: float, output: IO[str]
+    proof: Optional[str],
+    status_path: Path,
+    timeout: float,
+    output: IO[str],
 ) -> None:
     status = Status(status_path).read()
     if status is None:

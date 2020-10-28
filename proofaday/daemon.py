@@ -75,7 +75,9 @@ class ProofServer(socketserver.ThreadingUDPServer):
             raise ServerError("Failed to write status file.")
 
         threading.Thread(
-            target=self.fetch_proofs, daemon=True, name="ServerLoop"
+            target=self.fetch_proofs,
+            daemon=True,
+            name="ServerLoop",
         ).start()
 
     def init_logger(self, level: int, path: Path) -> logging.Logger:
