@@ -1,0 +1,43 @@
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "proofaday"
+version = "0.2.12"
+description = "Print random proofs from ProofWiki"
+license = "MIT"
+authors = ["Wolf Honoré <wolfhonore@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/whonore/proofaday"
+classifiers=[
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3 :: Only",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+]
+
+[tool.poetry.scripts]
+proofaday = "proofaday.proofaday:main"
+dproofaday = "proofaday.daemon_cli:main"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+appdirs = "^1.4.0"
+beautifulsoup4 = "^4.9.0"
+click = "^7.1.0"
+pylatexenc = "^2.8"
+python-daemon = "^2.2.0"
+requests = "^2.24.0"
+
+[tool.poetry.dev-dependencies]
+black = "*"
+flake8 = "*"
+flake8-bugbear = "*"
+isort = "*"
+mypy = "*"
+twine = "*"
+typing_extensions = "*"

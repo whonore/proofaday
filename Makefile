@@ -15,7 +15,7 @@ lint:
 	mypy --show-error-codes -p $(PACKAGE)
 	flake8 $(PACKAGE)
 
-V := $(shell awk 'BEGIN { FS = "=" } /version=/{ gsub("[,\"]", ""); print $$2 }' setup.py)
+V := $(shell awk 'BEGIN { FS = "=" } /version/{ gsub("[ \"]", ""); print $$2 }' pyproject.toml)
 release:
 	git tag -a v$(V) -m "Release $(V)"
 
