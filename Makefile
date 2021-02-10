@@ -1,6 +1,6 @@
 PACKAGE := proofaday
 
-.PHONY: all format lint release build upload clean
+.PHONY: all format lint release clean
 
 all:
 	@echo 'Usage: make (format | lint | release | clean)'
@@ -19,11 +19,5 @@ V := $(shell awk 'BEGIN { FS = "=" } /version/{ gsub("[ \"]", ""); print $$2 }' 
 release:
 	git tag -a v$(V) -m "Release $(V)"
 
-build:
-	python setup.py sdist bdist_wheel
-
-upload: build
-	twine upload --skip-existing dist/*
-
 clean:
-	rm -rf build/ dist/ $(PACKAGE).egg-info/
+	rm -rf dist/
