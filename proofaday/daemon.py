@@ -1,14 +1,14 @@
-import concurrent.futures as futures
 import logging
 import os
 import signal
 import socketserver
 import sys
 import threading
+from concurrent import futures
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from queue import Queue
-from typing import Any, NoReturn, Optional, Set
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Set, cast
 
 import requests
 from bs4 import BeautifulSoup as BS
@@ -21,6 +21,14 @@ from proofaday.message import Action, Message
 from proofaday.proof import InvalidProofException, Proof
 from proofaday.status import Status
 
+if TYPE_CHECKING:
+    # pylint: disable=unsubscriptable-object
+    StrQueue = Queue[str]
+    ProofFuture = futures.Future[Optional[str]]
+else:
+    StrQueue = Queue
+    ProofFuture = futures.Future
+
 
 class ServerError(Exception):
     pass
@@ -30,7 +38,7 @@ class ProofHandler(socketserver.BaseRequestHandler):
     def handle(self) -> None:
         data, sock = self.request
         msg = Message.decode(data)
-        server: ProofServer = self.server  # type: ignore[assignment]
+        server: ProofServer = cast(ProofServer, self.server)
         logger = server.logger
         logger.info("Received %s from (%s, %d)", msg.action, *self.client_address)
 
@@ -66,7 +74,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
         super().__init__((consts.HOST, port), ProofHandler)
         level = {0: logging.NOTSET, 1: logging.INFO}.get(debug, logging.DEBUG)
         self.logger = self.init_logger(level, log_path)
-        self.queue: Queue[str] = Queue(maxsize=nprefetch)
+        self.queue: StrQueue = Queue(maxsize=nprefetch)
         self.limit = line_limit if line_limit > 0 else None
 
         host, port = self.server_address
@@ -80,7 +88,8 @@ class ProofServer(socketserver.ThreadingUDPServer):
             name="ServerLoop",
         ).start()
 
-    def init_logger(self, level: int, path: Path) -> logging.Logger:
+    @staticmethod
+    def init_logger(level: int, path: Path) -> logging.Logger:
         logger = logging.getLogger(__name__)
         logger.setLevel(level)
         if level != logging.NOTSET:
@@ -116,7 +125,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
             pass
         except InvalidProofException as e:
             self.logger.exception("Invalid proof: %s", str(e))
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             self.logger.exception(
                 "Unexpected exception while fetching a proof: %s",
                 str(e),
@@ -132,7 +141,7 @@ class ProofServer(socketserver.ThreadingUDPServer):
             max_workers=ProofServer.max_threads,
             thread_name_prefix="Fetcher",
         ) as pool:
-            jobs: Set[futures.Future[Optional[str]]] = set()
+            jobs: Set[ProofFuture] = set()
             while True:
                 njobs = self.queue.maxsize - self.queue.qsize() - len(jobs)
                 if len(jobs) == 0:

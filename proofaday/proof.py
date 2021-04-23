@@ -60,7 +60,9 @@ class Proof:
             "".join(self.node_to_text(node) for node in proof_body).strip(),
         )
 
-    def node_to_text(self, node: Any) -> str:
+    @staticmethod
+    def node_to_text(node: Any) -> str:
+        # pylint: disable=no-else-return
         if node.name == "p":
             return node.get_text()  # type: ignore[no-any-return]
         elif node.name == "dl":

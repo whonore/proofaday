@@ -74,13 +74,13 @@ def start_options(f: F) -> F:
 
 
 @click.group(cls=ServerInvoker, help="A daemon to fetch proofs.")
-@click.option(
+@click.option(  # type: ignore[misc]
     "-q",
     "--quiet/--no-quiet",
     help="Disable output.",
     default=False,
 )
-@click.option(
+@click.option(  # type: ignore[misc]
     "--status-path",
     help="Directory to place the status file.",
     type=ClickPath(exists=False, file_okay=False),
@@ -90,31 +90,32 @@ def start_options(f: F) -> F:
 def main(ctx: click.core.Context, quiet: bool, status_path: Path) -> None:
     ctx.obj = Status(status_path)
     if quiet:
+        # pylint: disable=consider-using-with
         sys.stdout = sys.stderr = open(os.devnull, "w")
 
 
 @main.command(help="Start the daemon.")
 @start_options
-@pass_status
+@pass_status  # type: ignore[misc]
 def start(status: Status, force: bool, **kwargs: Any) -> None:
     if status.read() is not None:
         if not force:
             raise ServerError("Daemon already started.")
-        elif not status.remove():
+        if not status.remove():
             raise ServerError("Failed to remove status file.")
     spawn(status=status, **kwargs)
 
 
 @main.command(help="Stop the daemon.")
-@pass_status
+@pass_status  # type: ignore[misc]
 def stop(status: Status) -> None:
     data = status.read()
     if data is None:
         raise ServerError("Daemon not running.")
     try:
         os.kill(data["pid"], signal.SIGTERM)
-    except ProcessLookupError:
-        raise ServerError("Daemon not running.")
+    except ProcessLookupError as e:
+        raise ServerError("Daemon not running.") from e
     finally:
         if not status.wait(exist=False):
             raise ServerError("Failed to stop daemon.")
@@ -122,29 +123,31 @@ def stop(status: Status) -> None:
 
 @main.command(help="Restart the daemon.")
 @start_options
-@pass_status
+@pass_status  # type: ignore[misc]
 @click.pass_context
 def restart(ctx: click.core.Context, status: Status, **kwargs: Any) -> None:
+    # pylint: disable=unused-argument
     ctx.invoke(stop)
     ctx.forward(start)
 
 
 @main.command(help="Check the status of the daemon.")
-@click.option(
+@click.option(  # type: ignore[misc]
     "-w",
     "--wait/--no-wait",
     help="Block until the status is available.",
     default=False,
 )
-@pass_status
+@pass_status  # type: ignore[misc]
 def status(status: Status, wait: bool) -> None:
     try:
         if wait:
             status.wait(exist=True, timeout=None)
         click.echo(status)
-    except ValueError:
-        raise ServerError("Failed to read status file.")
+    except ValueError as e:
+        raise ServerError("Failed to read status file.") from e
 
 
 if __name__ == "__main__":
+    # pylint: disable=no-value-for-parameter
     main()

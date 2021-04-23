@@ -29,7 +29,7 @@ class Status:
             self.file.parent.mkdir(parents=True, exist_ok=True)
             self.file.touch(exist_ok=False)
             return True
-        except Exception:
+        except OSError:
             return False
 
     def read(self) -> Optional[StatusData]:
@@ -41,14 +41,14 @@ class Status:
         try:
             self.file.write_text(json.dumps(kwargs))
             return True
-        except Exception:
+        except OSError:
             return False
 
     def remove(self) -> bool:
         try:
             self.file.unlink()
             return True
-        except Exception:
+        except OSError:
             return False
 
     def _wait(self, exist: bool, stop: threading.Event) -> None:

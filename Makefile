@@ -14,6 +14,7 @@ lint:
 	isort --check $(PACKAGE)
 	mypy --show-error-codes -p $(PACKAGE)
 	flake8 $(PACKAGE)
+	pylint $(PACKAGE)
 
 V := $(shell awk 'BEGIN { FS = "=" } /version/{ gsub("[ \"]", ""); print $$2 }' pyproject.toml)
 release:
