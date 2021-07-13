@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "proofaday"
-version = "0.2.13"
+version = "0.2.14"
 description = "Print random proofs from ProofWiki"
 license = "MIT"
 authors = ["Wolf Honoré <wolfhonore@gmail.com>"]
