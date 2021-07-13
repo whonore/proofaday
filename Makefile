@@ -1,9 +1,9 @@
 PACKAGE := proofaday
 
-.PHONY: all format lint release clean
+.PHONY: all format lint patch minor major clean
 
 all:
-	@echo 'Usage: make (format | lint | release | clean)'
+	@echo 'Usage: make (format | lint | patch | minor | major | clean)'
 
 format:
 	black $(PACKAGE)
@@ -16,9 +16,14 @@ lint:
 	flake8 $(PACKAGE)
 	pylint $(PACKAGE)
 
-V := $(shell awk 'BEGIN { FS = "=" } /version/{ gsub("[ \"]", ""); print $$2 }' pyproject.toml)
-release:
-	git tag -a v$(V) -m "Release $(V)"
+patch: lint
+	bump2version $@
+
+minor: lint
+	bump2version $@
+
+major: lint
+	bump2version $@
 
 clean:
 	rm -rf dist/
