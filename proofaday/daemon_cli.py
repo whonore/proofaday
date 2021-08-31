@@ -91,7 +91,7 @@ def main(ctx: click.core.Context, quiet: bool, status_path: Path) -> None:
     ctx.obj = Status(status_path)
     if quiet:
         # pylint: disable=consider-using-with
-        sys.stdout = sys.stderr = open(os.devnull, "w")
+        sys.stdout = sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 
 @main.command(help="Start the daemon.")

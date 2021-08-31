@@ -436,7 +436,7 @@ MACROS = [
         ("sphericalangle", "\N{SPHERICAL ANGLE}"),
         ("sqcap", "\N{SQUARE CAP}"),
         ("sqcup", "\N{SQUARE CUP}"),
-        ("sqrt", u"\N{SQUARE ROOT}(%(2)s)"),
+        ("sqrt", "\N{SQUARE ROOT}(%(2)s)"),
         ("sqsubset", "\N{SQUARE IMAGE OF}"),
         ("sqsubseteq", "\N{SQUARE IMAGE OF OR EQUAL TO}"),
         ("sqsupset", "\N{SQUARE ORIGINAL OF}"),
