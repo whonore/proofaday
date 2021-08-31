@@ -26,9 +26,9 @@ dproofaday = "proofaday.daemon_cli:main"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-appdirs = "^1.4.0"
 beautifulsoup4 = "^4.9.0"
 click = "^8.0.0"
+platformdirs = "^2.3.0"
 pylatexenc = "^2.8"
 python-daemon = "^2.2.0"
 requests = "^2.24.0"
