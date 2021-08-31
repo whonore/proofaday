@@ -11,6 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build and publish
-      uses: JRubics/poetry-publish@v1
-      env:
+      uses: JRubics/poetry-publish@v1.8
+      with:
         pypi_token: ${{ secrets.PYPI_TOKEN }}
+        ignore_dev_requirements: "yes"
