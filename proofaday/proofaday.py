@@ -38,14 +38,14 @@ class ProofClient:
 
 
 @click.command(help="Fetch a random proof.")
-@click.argument("proof", required=False, default=None)  # type: ignore[misc]
-@click.option(  # type: ignore[misc]
+@click.argument("proof", required=False, default=None)
+@click.option(
     "--status-path",
     help="Directory to place the status file.",
     type=ClickPath(exists=False, file_okay=False),
     default=consts.DATA_PATH,
 )
-@click.option(  # type: ignore[misc]
+@click.option(
     "-t",
     "--timeout",
     help="Time to wait for a proof (in seconds).",
@@ -53,7 +53,7 @@ class ProofClient:
     default=consts.CLIENT_TIMEOUT,
     show_default=True,
 )
-@click.option(  # type: ignore[misc]
+@click.option(
     "-o",
     "--output",
     help="The file to print output to.",

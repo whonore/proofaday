@@ -74,13 +74,13 @@ def start_options(f: F) -> F:
 
 
 @click.group(cls=ServerInvoker, help="A daemon to fetch proofs.")
-@click.option(  # type: ignore[misc]
+@click.option(
     "-q",
     "--quiet/--no-quiet",
     help="Disable output.",
     default=False,
 )
-@click.option(  # type: ignore[misc]
+@click.option(
     "--status-path",
     help="Directory to place the status file.",
     type=ClickPath(exists=False, file_okay=False),
@@ -96,7 +96,7 @@ def main(ctx: click.core.Context, quiet: bool, status_path: Path) -> None:
 
 @main.command(help="Start the daemon.")
 @start_options
-@pass_status  # type: ignore[misc]
+@pass_status
 def start(status: Status, force: bool, **kwargs: Any) -> None:
     if status.read() is not None:
         if not force:
@@ -107,7 +107,7 @@ def start(status: Status, force: bool, **kwargs: Any) -> None:
 
 
 @main.command(help="Stop the daemon.")
-@pass_status  # type: ignore[misc]
+@pass_status
 def stop(status: Status) -> None:
     data = status.read()
     if data is None:
@@ -123,7 +123,7 @@ def stop(status: Status) -> None:
 
 @main.command(help="Restart the daemon.")
 @start_options
-@pass_status  # type: ignore[misc]
+@pass_status
 @click.pass_context
 def restart(ctx: click.core.Context, status: Status, **kwargs: Any) -> None:
     # pylint: disable=unused-argument
@@ -132,13 +132,13 @@ def restart(ctx: click.core.Context, status: Status, **kwargs: Any) -> None:
 
 
 @main.command(help="Check the status of the daemon.")
-@click.option(  # type: ignore[misc]
+@click.option(
     "-w",
     "--wait/--no-wait",
     help="Block until the status is available.",
     default=False,
 )
-@pass_status  # type: ignore[misc]
+@pass_status
 def status(status: Status, wait: bool) -> None:
     try:
         if wait:
