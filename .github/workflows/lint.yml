@@ -10,7 +10,9 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.*'
+        # TODO: temporarily restrict version due to weird pylint error.
+        # See: https://github.com/whonore/proofaday/actions/runs/3699417622/jobs/6266763010.
+        python-version: '>=3.6.2 <3.11'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade poetry
