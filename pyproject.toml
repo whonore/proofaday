@@ -25,7 +25,7 @@ proofaday = "proofaday.proofaday:main"
 dproofaday = "proofaday.daemon_cli:main"
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.6.2"
 beautifulsoup4 = "^4.9.0"
 click = "^8.0.0"
 platformdirs = "^2.3.0"
